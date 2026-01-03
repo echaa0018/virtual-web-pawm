@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-this";
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased limit for base64 images
 
 // --- MIDDLEWARE ---
 // This checks if the user sends a valid token
@@ -68,7 +68,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Create a Token
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
 
-    res.json({ token, name: user.name, email: user.email });
+    res.json({ token, name: user.name, email: user.email, profileImage: user.profileImage });
   } catch (error) {
     res.status(500).json({ error: "Login failed" });
   }
@@ -82,6 +82,36 @@ app.get('/api/simulations', async (req, res) => {
 });
 
 // --- PROTECTED ROUTES (Require Login) ---
+
+// Update User Profile
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+  const userId = parseInt(req.user.userId);
+  const { name, profileImage } = req.body;
+
+  console.log('Updating profile for user:', userId);
+  console.log('Name:', name);
+  console.log('Image size:', profileImage ? profileImage.length : 0);
+
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { 
+        name: name || null,
+        profileImage: profileImage || null
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profileImage: true
+      }
+    });
+    res.json(updatedUser);
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ error: "Failed to update profile", details: error.message });
+  }
+});
 
 // 3. Save Progress (Now Protected)
 app.post('/api/save-progress', authenticateToken, async (req, res) => {

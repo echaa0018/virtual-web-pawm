@@ -1,17 +1,76 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { X, Camera } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '../lib/axios';
 
-interface UserProfileProps {
-  onClose: () => void;
+interface UserData {
+  id?: number;
+  email: string;
+  name: string | null;
+  profileImage?: string | null;
 }
 
-export function UserProfile({ onClose }: UserProfileProps) {
-  const [displayName, setDisplayName] = useState('Valereo Jibril');
+interface UserProfileProps {
+  user: UserData;
+  onClose: () => void;
+  onUpdate: (updatedUser: UserData) => void;
+}
 
-  const handleSave = () => {
-    // Save logic would go here
-    console.log('Saving profile changes:', displayName);
-    onClose();
+export function UserProfile({ user, onClose, onUpdate }: UserProfileProps) {
+  const [displayName, setDisplayName] = useState(user.name || '');
+  const [profileImage, setProfileImage] = useState<string | null>(user.profileImage || null);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getInitials = () => {
+    const name = displayName || user.email.split('@')[0];
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Save to backend
+      const response = await api.put('/user/profile', { 
+        name: displayName,
+        profileImage: profileImage
+      });
+      
+      const updatedUser = response.data;
+      
+      // Update localStorage
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      
+      onUpdate(updatedUser);
+      toast.success('Profile updated successfully!');
+      onClose();
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+      const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
+      toast.error('Failed to save changes: ' + errorMsg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -32,13 +91,45 @@ export function UserProfile({ onClose }: UserProfileProps) {
         <div className="p-6 space-y-6">
           {/* Profile Picture */}
           <div className="flex flex-col items-center">
-            <div className="relative group">
-              <div className="w-32 h-32 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-4xl">
-                VJ
-              </div>
-              <button className="absolute bottom-0 right-0 bg-teal-600 text-white p-3 rounded-full shadow-lg hover:bg-teal-700 transition-colors">
+            <div className="relative group cursor-pointer" onClick={handleImageClick}>
+              {profileImage ? (
+                <img 
+                  src={profileImage} 
+                  alt="Profile" 
+                  className="w-32 h-32 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-32 h-32 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 flex items-center justify-center text-white text-4xl font-bold">
+                  {getInitials()}
+                </div>
+              )}
+              <button 
+                type="button"
+                className="absolute bottom-0 right-0 bg-teal-600 text-white p-3 rounded-full shadow-lg hover:bg-teal-700 transition-colors"
+              >
                 <Camera className="w-5 h-5" />
               </button>
+              {/* Remove profile picture button */}
+              {profileImage && (
+                <button 
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setProfileImage(null);
+                  }}
+                  className="absolute top-0 right-0 bg-red-500 text-white p-1.5 rounded-full shadow-lg hover:bg-red-600 transition-colors"
+                  title="Remove profile picture"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="hidden"
+              />
             </div>
             <p className="text-sm text-gray-500 mt-3">Click to change profile picture</p>
           </div>
@@ -58,22 +149,7 @@ export function UserProfile({ onClose }: UserProfileProps) {
             />
           </div>
 
-          {/* Student ID (Read-only) */}
-          <div>
-            <label htmlFor="student-id" className="block text-sm text-gray-700 mb-2">
-              Student ID
-            </label>
-            <input
-              type="text"
-              id="student-id"
-              value="18223030"
-              readOnly
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-            />
-            <p className="text-xs text-gray-500 mt-1">Student ID cannot be changed</p>
-          </div>
-
-          {/* Email (Optional additional field) */}
+          {/* Email (Read-only) */}
           <div>
             <label htmlFor="email" className="block text-sm text-gray-700 mb-2">
               Email
@@ -81,23 +157,26 @@ export function UserProfile({ onClose }: UserProfileProps) {
             <input
               type="email"
               id="email"
-              value="valereo.jibril@university.edu"
+              value={user.email}
               readOnly
               className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
             />
+            <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
           </div>
 
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4">
             <button
               onClick={handleSave}
-              className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+              disabled={isSaving}
+              className="flex-1 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
             <button
               onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={isSaving}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

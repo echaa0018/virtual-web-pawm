@@ -6,6 +6,8 @@ import { Homepage } from './components/Homepage';
 import { SimulationDetailPage } from './components/SimulationDetailPage';
 import { AuthModal } from './components/AuthModal';
 import { SaveExperimentModal } from './components/SaveExperimentModal';
+import { UserProfile } from './components/UserProfile';
+import { Toaster } from './components/ui/sonner';
 import api from './lib/axios';
 
 function App() {
@@ -18,6 +20,7 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   // 1. Check for logged in user on load
   useEffect(() => {
@@ -60,6 +63,7 @@ function App() {
         onRegisterClick={() => { setAuthMode('register'); setShowAuthModal(true); }}
         onSignOut={handleLogout}
         onLogoClick={() => setPage('home')}
+        onProfileClick={() => setShowProfileModal(true)}
       />
       
       <div className="flex-1">
@@ -99,6 +103,16 @@ function App() {
            onSave={() => { setShowSaveModal(false); setPage('home'); }}
         />
       )}
+
+      {showProfileModal && user && (
+        <UserProfile
+          user={user}
+          onClose={() => setShowProfileModal(false)}
+          onUpdate={(updatedUser) => setUser(updatedUser)}
+        />
+      )}
+      
+      <Toaster position="top-center" />
     </div>
   );
 }

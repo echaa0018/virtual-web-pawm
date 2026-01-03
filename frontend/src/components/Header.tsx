@@ -6,6 +6,7 @@ interface UserData {
   id: number;
   email: string;
   name: string | null;
+  profileImage?: string | null;
 }
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ interface HeaderProps {
   onRegisterClick: () => void;
   onSignOut: () => void;
   onLogoClick: () => void;
+  onProfileClick: () => void;
 }
 
 export function Header({ 
@@ -23,7 +25,8 @@ export function Header({
   onLoginClick, 
   onRegisterClick, 
   onSignOut,
-  onLogoClick
+  onLogoClick,
+  onProfileClick
 }: HeaderProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -74,9 +77,17 @@ export function Header({
                      <p className="text-sm font-medium text-gray-700">{displayName}</p>
                      <p className="text-xs text-gray-500 truncate max-w-[150px]">{user.email}</p>
                    </div>
-                   <div className="w-9 h-9 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-sm font-bold border-2 border-white shadow-sm">
-                     {initials}
-                   </div>
+                   {user.profileImage ? (
+                     <img 
+                       src={user.profileImage} 
+                       alt={displayName}
+                       className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm"
+                     />
+                   ) : (
+                     <div className="w-14 h-14 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-lg font-bold border-2 border-white shadow-sm">
+                       {initials}
+                     </div>
+                   )}
                  </button>
 
                 {/* Profile Dropdown Menu */}
@@ -91,7 +102,13 @@ export function Header({
                         <p className="text-sm font-medium text-gray-900">{displayName}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       </div>
-                      <button className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          onProfileClick();
+                        }}
+                        className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2"
+                      >
                         <User className="w-4 h-4" /> My Profile
                       </button>
                       <button className="w-full px-4 py-2 text-sm text-left hover:bg-gray-50 flex items-center gap-2">
@@ -152,15 +169,29 @@ export function Header({
               {isLoggedIn && user ? (
                 <>
                    <div className="px-4 flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-sm font-bold">
-                       {initials}
-                     </div>
+                    {user.profileImage ? (
+                      <img 
+                        src={user.profileImage} 
+                        alt={displayName}
+                        className="w-10 h-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 text-sm font-bold">
+                        {initials}
+                      </div>
+                    )}
                      <div>
                        <p className="font-medium text-gray-900">{displayName}</p>
                        <p className="text-xs text-gray-500 truncate">{user.email}</p>
                      </div>
                    </div>
-                   <button className="w-full px-4 py-2 text-left flex items-center gap-2 hover:bg-gray-50 rounded-lg">
+                   <button 
+                     onClick={() => {
+                       setIsMenuOpen(false);
+                       onProfileClick();
+                     }}
+                     className="w-full px-4 py-2 text-left flex items-center gap-2 hover:bg-gray-50 rounded-lg"
+                   >
                      <User className="w-5 h-5 text-gray-500" /> My Profile
                    </button>
                    <button 
