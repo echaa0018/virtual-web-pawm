@@ -12,6 +12,10 @@ interface Simulation {
   image?: string;
   isNew?: boolean;
   createdAt?: string;
+  config?: {
+    hasSimulation?: boolean;
+    [key: string]: any;
+  };
 }
 
 interface ResultsGridProps {
@@ -134,6 +138,7 @@ export function ResultsGrid({
             title={simulation.title}
             image={simulation.image || 'https://placehold.co/600x400?text=Simulation'}
             isNew={simulation.isNew || false}
+            hasSimulation={simulation.config?.hasSimulation ?? false}
             viewMode={viewMode}
             onClick={() => onSimulationClick(simulation)}
           />
