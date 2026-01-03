@@ -26,17 +26,32 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
   }, [activeTab, simulation.id, user]);
 
   const handleSave = async () => {
-    if (!user) return alert("Please login to save progress");
+    const token = localStorage.getItem('token');
+    if (!user || !token) {
+      alert("Please login to save progress");
+      return;
+    }
+    
+    // Check if we have parameters to save
+    if (!currentParams || Object.keys(currentParams).length === 0) {
+      alert("No simulation data to save. Please run the simulation first.");
+      return;
+    }
     
     try {
       await api.post('/save-progress', {
-        simulationId: simulation.id,
+        simulationId: parseInt(simulation.id), // Ensure it's an integer
         data: currentParams // <--- Saves the pendulum state (length, mass, etc)
       });
       alert('Experiment Saved!');
       setShowSaveUI(false);
-    } catch (err) {
-      alert('Failed to save');
+    } catch (err: any) {
+      console.error('Save error:', err);
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        alert('Session expired. Please login again.');
+      } else {
+        alert('Failed to save: ' + (err.response?.data?.error || err.message));
+      }
     }
   };
 
