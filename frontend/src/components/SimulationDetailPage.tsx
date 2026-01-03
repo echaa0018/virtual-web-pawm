@@ -9,9 +9,11 @@ interface Props {
   simulation: any;
   user: any;
   onBack: () => void;
+  onParamsChange?: (params: any) => void;
+  onSaveHandlerReady?: (handler: (name: string) => void) => void;
 }
 
-export function SimulationDetailPage({ simulation, user, onBack }: Props) {
+export function SimulationDetailPage({ simulation, user, onBack, onParamsChange, onSaveHandlerReady }: Props) {
   const [activeTab, setActiveTab] = useState('simulation');
   const [currentParams, setCurrentParams] = useState<any>({}); // Current Sim State
   const [history, setHistory] = useState<any[]>([]); // Saved experiments
@@ -19,7 +21,35 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
   const [loadedParams, setLoadedParams] = useState<any>(null); // Params loaded from saved experiment
   const [showSaveModal, setShowSaveModal] = useState(false); // Save modal visibility
   const [experimentName, setExperimentName] = useState(''); // Name for saved experiment
+  // Notify parent when params change
+  useEffect(() => {
+    if (onParamsChange && currentParams) {
+      onParamsChange(currentParams);
+    }
+  }, [currentParams, onParamsChange]);
 
+  // Provide save handler to parent
+  useEffect(() => {
+    if (onSaveHandlerReady) {
+      onSaveHandlerReady(async (name: string) => {
+        try {
+          await api.post('/save-progress', {
+            simulationId: parseInt(simulation.id),
+            name: name,
+            data: currentParams
+          });
+          toast.success('Experiment saved successfully!');
+        } catch (err: any) {
+          console.error('Save error:', err);
+          if (err.response?.status === 401 || err.response?.status === 403) {
+            toast.error('Session expired. Please login again.');
+          } else {
+            toast.error('Failed to save: ' + (err.response?.data?.error || err.message));
+          }
+        }
+      });
+    }
+  }, [simulation.id, currentParams, onSaveHandlerReady]);
   // Fetch saved history when tab changes
   useEffect(() => {
     if (activeTab === 'saved' && user) {

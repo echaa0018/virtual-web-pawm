@@ -21,6 +21,10 @@ function App() {
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  
+  // Current simulation parameters and save handler
+  const [currentParams, setCurrentParams] = useState<any>(null);
+  const [saveHandler, setSaveHandler] = useState<((name: string) => void) | null>(null);
 
   // 1. Check for logged in user on load
   useEffect(() => {
@@ -80,6 +84,8 @@ function App() {
             simulation={selectedSim}
             user={user}
             onBack={() => setShowSaveModal(true)}
+            onParamsChange={setCurrentParams}
+            onSaveHandlerReady={(handler) => setSaveHandler(() => handler)}
           />
         )}
       </div>
@@ -99,8 +105,14 @@ function App() {
         <SaveExperimentModal
            onDiscard={() => { setShowSaveModal(false); setPage('home'); }}
            onCancel={() => setShowSaveModal(false)}
-           // Pass a dummy function here, actual saving is handled inside DetailPage
-           onSave={() => { setShowSaveModal(false); setPage('home'); }}
+           onSave={(experimentName) => {
+             if (saveHandler) {
+               saveHandler(experimentName);
+             }
+             setShowSaveModal(false);
+             setPage('home');
+           }}
+           currentParams={currentParams}
         />
       )}
 
