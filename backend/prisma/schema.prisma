@@ -23,6 +23,8 @@ model Simulation {
   id          Int      @id @default(autoincrement())
   title       String
   description String?
+  image       String?
+  category    String   @default("Physics")
   config      Json?
   
   userStates  SimulationState[]

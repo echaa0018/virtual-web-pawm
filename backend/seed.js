@@ -22,6 +22,8 @@ async function main() {
     data: {
       title: 'Resistor-Capacitor (RC) Filter',
       description: 'Explore how a capacitor acts as a filter for AC signals.',
+      image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&h=400&fit=crop',
+      category: 'Physics',
       config: {
         defaultResistance: 1000,
         defaultCapacitance: 0.00001,
