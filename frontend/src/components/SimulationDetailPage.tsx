@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { PendulumSimulator } from './PendulumSimulator';
 import api from '../lib/axios';
+import { toast } from 'sonner';
 import { Save, Download, X } from 'lucide-react';
 
 interface Props {
@@ -31,13 +32,13 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
   const openSaveModal = () => {
     const token = localStorage.getItem('token');
     if (!user || !token) {
-      alert("Please login to save progress");
+      toast.error("Please login to save progress");
       return;
     }
     
     // Check if we have parameters to save
     if (!currentParams || Object.keys(currentParams).length === 0) {
-      alert("No simulation data to save. Please run the simulation first.");
+      toast.error("No simulation data to save. Please run the simulation first.");
       return;
     }
     
@@ -47,7 +48,7 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
 
   const handleSave = async () => {
     if (!experimentName.trim()) {
-      alert("Please enter a name for your experiment.");
+      toast.error("Please enter a name for your experiment.");
       return;
     }
     
@@ -57,15 +58,15 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
         name: experimentName.trim(),
         data: currentParams // <--- Saves the pendulum state (length, mass, etc)
       });
-      alert('Experiment Saved!');
+      toast.success('Experiment saved successfully!');
       setShowSaveModal(false);
       setExperimentName('');
     } catch (err: any) {
       console.error('Save error:', err);
       if (err.response?.status === 401 || err.response?.status === 403) {
-        alert('Session expired. Please login again.');
+        toast.error('Session expired. Please login again.');
       } else {
-        alert('Failed to save: ' + (err.response?.data?.error || err.message));
+        toast.error('Failed to save: ' + (err.response?.data?.error || err.message));
       }
     }
   };

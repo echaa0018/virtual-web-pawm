@@ -56,14 +56,24 @@ export function Header({
             className="flex items-center gap-2 sm:gap-3 cursor-pointer" 
             onClick={onLogoClick}
           >
-            <div className="bg-teal-600 p-2 rounded-lg">
-              <Microscope className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-            </div>
+            <img 
+              src="/HoushouIcon.jpg" 
+              alt="Houshou Lab Logo" 
+              className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover"
+            />
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-none">VirtuLab</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-none">Houshou</h1>
               <p className="text-xs sm:text-sm text-teal-600 font-medium">Interactive Physics Simulations</p>
             </div>
           </div>
+
+          {/* Instructions for customization:
+              1. To change the icon: Replace the <Microscope /> component with any other lucide-react icon
+              2. To change the icon background color: Update 'bg-teal-600' class
+              3. To change the website name: Update 'VirtuLab' text
+              4. To change the tagline: Update 'Interactive Physics Simulations' text
+              5. To change the tagline color: Update 'text-teal-600' class
+          */}
 
           {/* Desktop Navigation & Auth Actions */}
           <div className="hidden lg:flex items-center gap-4">
