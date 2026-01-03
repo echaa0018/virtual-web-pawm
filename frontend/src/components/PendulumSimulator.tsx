@@ -1,10 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-interface PendulumSimulatorProps {
-  onParametersChange?: (params: { length: number; mass: number; gravity: number }) => void;
+interface PendulumParams {
+  length: number;
+  mass: number;
+  gravity: number;
 }
 
-export function PendulumSimulator({ onParametersChange }: PendulumSimulatorProps) {
+interface PendulumSimulatorProps {
+  onParametersChange?: (params: PendulumParams) => void;
+  initialParams?: PendulumParams | null;
+}
+
+export function PendulumSimulator({ onParametersChange, initialParams }: PendulumSimulatorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [length, setLength] = useState(200); // pixels
   const [mass, setMass] = useState(20); // kg
@@ -13,6 +20,18 @@ export function PendulumSimulator({ onParametersChange }: PendulumSimulatorProps
   const [angularVelocity, setAngularVelocity] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const animationFrameRef = useRef<number>();
+
+  // Load initial params when provided (from saved experiment)
+  useEffect(() => {
+    if (initialParams) {
+      setLength(initialParams.length);
+      setMass(initialParams.mass);
+      setGravity(initialParams.gravity);
+      setAngle(Math.PI / 4); // Reset angle
+      setAngularVelocity(0); // Reset velocity
+      setIsRunning(false); // Stop simulation
+    }
+  }, [initialParams]);
 
   useEffect(() => {
     onParametersChange?.({ length, mass, gravity });

@@ -15,6 +15,7 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
   const [currentParams, setCurrentParams] = useState<any>({}); // Current Sim State
   const [history, setHistory] = useState<any[]>([]); // Saved experiments
   const [showSaveUI, setShowSaveUI] = useState(false);
+  const [loadedParams, setLoadedParams] = useState<any>(null); // Params loaded from saved experiment
 
   // Fetch saved history when tab changes
   useEffect(() => {
@@ -55,6 +56,13 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
     }
   };
 
+  const handleLoadExperiment = (experimentData: any) => {
+    // Set the loaded parameters (this will trigger the simulator to update)
+    setLoadedParams({ ...experimentData }); // Spread to create new reference
+    // Switch to simulation tab
+    setActiveTab('simulation');
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen p-8">
       <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm p-6">
@@ -75,7 +83,10 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
         {activeTab === 'simulation' && (
           <div>
              {/* Pass callback to capture state changes from the simulator */}
-            <PendulumSimulator onParametersChange={(params) => setCurrentParams(params)} />
+            <PendulumSimulator 
+              onParametersChange={(params) => setCurrentParams(params)} 
+              initialParams={loadedParams}
+            />
             
             <div className="mt-6 flex justify-end">
               <button 
@@ -106,7 +117,12 @@ export function SimulationDetailPage({ simulation, user, onBack }: Props) {
                       {JSON.stringify(item.data).slice(0, 60)}...
                     </p>
                   </div>
-                  <button className="text-teal-600 hover:underline text-sm">Load (Coming Soon)</button>
+                  <button 
+                    onClick={() => handleLoadExperiment(item.data)}
+                    className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm transition-colors"
+                  >
+                    Load Experiment
+                  </button>
                 </div>
               ))
             )}
