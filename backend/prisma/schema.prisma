@@ -32,6 +32,7 @@ model SimulationState {
   id           Int      @id @default(autoincrement())
   userId       Int
   simulationId Int
+  name         String   @default("Untitled Experiment")
   data         Json     
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

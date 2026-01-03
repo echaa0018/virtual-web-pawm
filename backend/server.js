@@ -87,13 +87,14 @@ app.get('/api/simulations', async (req, res) => {
 app.post('/api/save-progress', authenticateToken, async (req, res) => {
   // We get userId from the token, not the body (more secure)
   const userId = req.user.userId; 
-  const { simulationId, data } = req.body;
+  const { simulationId, data, name } = req.body;
 
   try {
     const newLog = await prisma.simulationState.create({
         data: { 
             userId, 
             simulationId, 
+            name: name || "Untitled Experiment",
             data 
         }
     });

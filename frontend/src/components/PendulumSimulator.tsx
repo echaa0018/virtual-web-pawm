@@ -270,12 +270,6 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         >
           {isRunning ? 'Pause' : 'Start'} Simulation
         </button>
-        <button
-          onClick={handleReset}
-          className="px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-        >
-          Reset
-        </button>
       </div>
 
       {/* Information Panel */}
