@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import {
   ArrowLeft,
   User,
@@ -22,12 +23,10 @@ import {
   X,
   LogOut,
   Camera,
-  Trash2,
   Clock,
-  Beaker,
 } from "lucide-react-native";
 
-import { useAuth, useApp, api, SavedExperiment } from "./_layout";
+import { useAuth, api } from "./_layout";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -35,36 +34,48 @@ export default function ProfileScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user?.name || "");
-  const [editEmail, setEditEmail] = useState(user?.email || "");
+  const [profileImage, setProfileImage] = useState<string | null>(user?.profileImage || null);
   const [isSaving, setIsSaving] = useState(false);
-  const [experiments, setExperiments] = useState<SavedExperiment[]>([]);
-  const [loadingExperiments, setLoadingExperiments] = useState(true);
 
   useEffect(() => {
     if (user) {
       setEditName(user.name || "");
-      setEditEmail(user.email || "");
-      fetchAllExperiments();
+      setProfileImage(user.profileImage || null);
     }
   }, [user]);
 
-  const fetchAllExperiments = async () => {
-    try {
-      setLoadingExperiments(true);
-      // Fetch experiments for simulation ID 1 (Simple Pendulum)
-      // Backend requires simulationId in the path
-      const res = await api.get("/my-history/1");
-      // Map 'data' field to 'parameters' for consistency
-      const mapped = res.data.map((exp: any) => ({
-        ...exp,
-        parameters: exp.data || exp.parameters || {}
-      }));
-      setExperiments(mapped);
-    } catch (error) {
-      console.error("Error fetching experiments:", error);
-    } finally {
-      setLoadingExperiments(false);
+  const handlePickImage = async () => {
+    // Request permission
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission Required", "Please allow access to your photo library to change your profile picture.");
+      return;
     }
+
+    // Launch image picker
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5, // Compress to avoid SecureStore size limits
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      setProfileImage(base64Image);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    Alert.alert("Remove Photo", "Are you sure you want to remove your profile picture?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => setProfileImage(null),
+      },
+    ]);
   };
 
   const handleSaveProfile = async () => {
@@ -75,8 +86,11 @@ export default function ProfileScreen() {
 
     setIsSaving(true);
     try {
-      const res = await api.put("/user/profile", { name: editName.trim() });
-      updateUser(res.data);
+      const res = await api.put("/user/profile", { 
+        name: editName.trim(),
+        profileImage: profileImage,
+      });
+      updateUser({ ...res.data, profileImage });
       setIsEditing(false);
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error: any) {
@@ -85,25 +99,6 @@ export default function ProfileScreen() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleDeleteExperiment = async (exp: SavedExperiment) => {
-    Alert.alert("Delete Experiment", `Are you sure you want to delete "${exp.name}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api.delete(`/experiments/${exp.id}`);
-            setExperiments((prev) => prev.filter((e) => e.id !== exp.id));
-            Alert.alert("Deleted", "Experiment deleted successfully!");
-          } catch (error: any) {
-            Alert.alert("Error", error.response?.data?.error || "Failed to delete experiment");
-          }
-        },
-      },
-    ]);
   };
 
   const handleSignOut = () => {
@@ -160,6 +155,7 @@ export default function ProfileScreen() {
               onPress={() => {
                 setIsEditing(false);
                 setEditName(user.name || "");
+                setProfileImage(user.profileImage || null);
               }}
               className="p-2"
             >
@@ -177,17 +173,38 @@ export default function ProfileScreen() {
         <View className="bg-white mx-4 mt-4 rounded-xl p-6 shadow-sm">
           {/* Avatar */}
           <View className="items-center mb-6">
-            {user.profileImage ? (
-              <Image source={{ uri: user.profileImage }} className="w-24 h-24 rounded-full" />
-            ) : (
-              <View className="w-24 h-24 rounded-full bg-teal-100 items-center justify-center">
-                <Text className="text-teal-700 text-3xl font-bold">{getInitials()}</Text>
-              </View>
-            )}
+            <View className="relative">
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} className="w-32 h-32 rounded-full" />
+              ) : (
+                <View className="w-32 h-32 rounded-full bg-gradient-to-br from-teal-400 to-blue-500 items-center justify-center">
+                  <Text className="text-white text-4xl font-bold">{getInitials()}</Text>
+                </View>
+              )}
+              
+              {/* Camera button - always visible in edit mode */}
+              {isEditing && (
+                <TouchableOpacity 
+                  onPress={handlePickImage}
+                  className="absolute bottom-0 right-0 bg-teal-600 w-10 h-10 rounded-full items-center justify-center shadow-lg"
+                >
+                  <Camera size={20} color="white" />
+                </TouchableOpacity>
+              )}
+              
+              {/* Remove photo button - visible in edit mode when there's an image */}
+              {isEditing && profileImage && (
+                <TouchableOpacity 
+                  onPress={handleRemoveImage}
+                  className="absolute top-0 right-0 bg-red-500 w-7 h-7 rounded-full items-center justify-center shadow-lg"
+                >
+                  <X size={14} color="white" />
+                </TouchableOpacity>
+              )}
+            </View>
+            
             {isEditing && (
-              <TouchableOpacity className="absolute bottom-0 right-1/3 bg-teal-600 w-8 h-8 rounded-full items-center justify-center">
-                <Camera size={16} color="white" />
-              </TouchableOpacity>
+              <Text className="text-sm text-gray-500 mt-3">Tap camera to change photo</Text>
             )}
           </View>
 
@@ -221,6 +238,9 @@ export default function ProfileScreen() {
                 <Mail size={16} color="#9ca3af" />
                 <Text className="text-gray-600 ml-2">{user.email}</Text>
               </View>
+              {isEditing && (
+                <Text className="text-xs text-gray-400 mt-1">Email cannot be changed</Text>
+              )}
             </View>
 
             {/* Member Since */}
@@ -236,62 +256,10 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Saved Experiments Section */}
-        <View className="mx-4 mt-6 mb-4">
-          <Text className="text-lg font-semibold text-gray-900 mb-3">
-            My Saved Experiments ({experiments.length})
-          </Text>
-
-          {loadingExperiments ? (
-            <View className="bg-white rounded-xl p-8 items-center">
-              <Text className="text-gray-500">Loading experiments...</Text>
-            </View>
-          ) : experiments.length === 0 ? (
-            <View className="bg-white rounded-xl p-8 items-center">
-              <Beaker size={48} color="#d1d5db" />
-              <Text className="text-gray-500 mt-4 text-center">No saved experiments yet</Text>
-              <Text className="text-gray-400 text-sm text-center mt-1">
-                Run a simulation and save your experiments to see them here.
-              </Text>
-            </View>
-          ) : (
-            <View className="space-y-3">
-              {experiments.map((exp) => (
-                <View key={exp.id} className="bg-white rounded-xl p-4 shadow-sm">
-                  <View className="flex-row items-start justify-between">
-                    <View className="flex-1 mr-3">
-                      <Text className="text-base font-medium text-gray-900">{exp.name}</Text>
-                      <Text className="text-xs text-gray-500 mt-1">
-                        {new Date(exp.createdAt).toLocaleDateString()} at{" "}
-                        {new Date(exp.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </Text>
-                    </View>
-                    <TouchableOpacity onPress={() => handleDeleteExperiment(exp)} className="p-2">
-                      <Trash2 size={18} color="#ef4444" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View className="bg-gray-50 rounded-lg p-3 mt-3">
-                    <Text className="text-xs font-medium text-gray-700 mb-1">Parameters</Text>
-                    <Text className="text-xs text-gray-600">
-                      Length: {exp.parameters.length}cm • Mass: {exp.parameters.mass}kg • Gravity:{" "}
-                      {exp.parameters.gravity}m/s² • Angle:{" "}
-                      {((exp.parameters.angle * 180) / Math.PI).toFixed(0)}°
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
         {/* Sign Out Button */}
         <TouchableOpacity
           onPress={handleSignOut}
-          className="mx-4 mb-8 mt-4 flex-row items-center justify-center gap-2 py-4 border border-red-200 rounded-xl bg-red-50"
+          className="mx-4 mb-8 mt-6 flex-row items-center justify-center gap-2 py-4 border border-red-200 rounded-xl bg-red-50"
         >
           <LogOut size={20} color="#ef4444" />
           <Text className="text-red-600 font-semibold">Sign Out</Text>
