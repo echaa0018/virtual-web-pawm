@@ -3,13 +3,13 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 
 export function HeroBanner() {
   return (
-    <div className="relative bg-gradient-to-b from-blue-400 to-blue-600 h-48 sm:h-64 lg:h-80 overflow-hidden">
-      {/* Underwater illustration background */}
+    <div className="relative bg-gradient-to-b from-blue-400 to-blue-600 h-64 sm:h-80 lg:h-96 overflow-hidden">
+      {/* Custom banner background */}
       <div className="absolute inset-0">
         <ImageWithFallback
-          src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=1600&h=400&fit=crop"
-          alt="Underwater scene with divers and coral"
-          className="w-full h-full object-cover opacity-60"
+          src="/banner.png"
+          alt="Virtual Lab Banner"
+          className="w-full h-full object-cover object-[center_19%] opacity-60"
         />
       </div>
       

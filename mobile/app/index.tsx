@@ -39,7 +39,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Image With Fallback Component
 // ============================================================================
 
-function ImageWithFallback({ src, alt, style, className }: { src?: string; alt: string; style?: any; className?: string }) {
+function ImageWithFallback({ src, alt, style, className }: { src?: string | number; alt: string; style?: any; className?: string }) {
   const [error, setError] = useState(false);
 
   if (error || !src) {
@@ -50,9 +50,12 @@ function ImageWithFallback({ src, alt, style, className }: { src?: string; alt: 
     );
   }
 
+  // Handle both local assets (number from require()) and remote URLs (string)
+  const imageSource = typeof src === 'number' ? src : { uri: src };
+
   return (
     <Image
-      source={{ uri: src }}
+      source={imageSource}
       style={style}
       className={className}
       onError={() => setError(true)}
@@ -156,7 +159,7 @@ function HeroBanner() {
   return (
     <View className="relative h-48 overflow-hidden">
       <ImageWithFallback
-        src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=300&fit=crop"
+        src={require("../assets/banner.png")}
         alt="Hero background"
         style={{ position: "absolute", width: "100%", height: "100%" }}
         className="opacity-60"
