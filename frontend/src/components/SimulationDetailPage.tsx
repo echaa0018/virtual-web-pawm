@@ -21,6 +21,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   const [loadedParams, setLoadedParams] = useState<any>(null); // Params loaded from saved experiment
   const [showSaveModal, setShowSaveModal] = useState(false); // Save modal visibility
   const [experimentName, setExperimentName] = useState(''); // Name for saved experiment
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false); // Loading state for history
   // Notify parent when params change
   useEffect(() => {
     if (onParamsChange && currentParams) {
@@ -50,12 +51,34 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       });
     }
   }, [simulation.id, currentParams, onSaveHandlerReady]);
-  // Fetch saved history when tab changes
+
+  // Function to fetch saved experiments
+  const fetchHistory = async () => {
+    if (!user) return;
+    
+    setIsLoadingHistory(true);
+    try {
+      console.log('Fetching history for simulation:', simulation.id);
+      const res = await api.get(`/my-history/${simulation.id}`);
+      console.log('History response:', res.data);
+      setHistory(res.data);
+    } catch (err: any) {
+      console.error('Failed to fetch history:', err);
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        toast.error('Session expired. Please login again to view saved experiments.');
+      } else {
+        toast.error('Failed to load saved experiments');
+      }
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Fetch saved history when tab changes or user changes
   useEffect(() => {
+    console.log('History useEffect triggered:', { activeTab, simulationId: simulation.id, hasUser: !!user });
     if (activeTab === 'saved' && user) {
-      api.get(`/my-history/${simulation.id}`)
-         .then(res => setHistory(res.data))
-         .catch(err => console.error(err));
+      fetchHistory();
     }
   }, [activeTab, simulation.id, user]);
 
@@ -91,6 +114,8 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       toast.success('Experiment saved successfully!');
       setShowSaveModal(false);
       setExperimentName('');
+      // Refresh the history list
+      fetchHistory();
     } catch (err: any) {
       console.error('Save error:', err);
       if (err.response?.status === 401 || err.response?.status === 403) {
@@ -169,6 +194,8 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
           <div className="space-y-4">
             {!user ? (
                <p>Please log in to view saved experiments.</p>
+            ) : isLoadingHistory ? (
+               <p className="text-gray-500">Loading saved experiments...</p>
             ) : history.length === 0 ? (
                <p className="text-gray-500">No saved experiments found.</p>
             ) : (

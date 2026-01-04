@@ -563,7 +563,27 @@ export default function SimulationDetailPage() {
   };
 
   const handleLoadExperiment = (exp: SavedExperiment) => {
-    setLoadedParams(exp.parameters);
+    // Safely load parameters with default fallbacks
+    const defaultParams: PendulumParams = {
+      length: 200,
+      mass: 20,
+      gravity: 9.8,
+      damping: 0.999,
+      angle: Math.PI / 4,
+      angularVelocity: 0,
+    };
+    
+    const params = exp.parameters || exp.data || {};
+    const safeParams: PendulumParams = {
+      length: params.length ?? defaultParams.length,
+      mass: params.mass ?? defaultParams.mass,
+      gravity: params.gravity ?? defaultParams.gravity,
+      damping: params.damping ?? defaultParams.damping,
+      angle: params.angle ?? defaultParams.angle,
+      angularVelocity: params.angularVelocity ?? defaultParams.angularVelocity,
+    };
+    
+    setLoadedParams(safeParams);
     setActiveTab("simulation");
     Alert.alert("Loaded", `Experiment "${exp.name}" loaded successfully!`);
   };

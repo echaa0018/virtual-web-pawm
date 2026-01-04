@@ -139,6 +139,8 @@ app.get('/api/my-history/:simulationId', authenticateToken, async (req, res) => 
     const userId = req.user.userId;
     const { simulationId } = req.params;
     
+    console.log('Fetching history for userId:', userId, 'simulationId:', simulationId);
+    
     try {
         const history = await prisma.simulationState.findMany({
             where: {
@@ -147,8 +149,10 @@ app.get('/api/my-history/:simulationId', authenticateToken, async (req, res) => 
             },
             orderBy: { createdAt: 'desc' }
         });
+        console.log('Found history items:', history.length);
         res.json(history);
     } catch (error) {
+        console.error('Error fetching history:', error);
         res.status(500).json({ error: "Failed to fetch history" });
     }
 });

@@ -141,9 +141,11 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await api.post("/auth/login", { email, password });
     // Backend returns { token, name, email, profileImage } - construct user object
     const { token: t, name, email: userEmail, profileImage } = res.data;
+    // Don't store profileImage in SecureStore (too large, causes warnings)
     const u: UserData = { id: 0, email: userEmail, name, profileImage };
+    const userForStorage: UserData = { id: 0, email: userEmail, name }; // Without profileImage
     await SecureStore.setItemAsync("token", t);
-    await SecureStore.setItemAsync("user", JSON.stringify(u));
+    await SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
     setToken(t); setUser(u);
   };
 
@@ -164,7 +166,9 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const updated = { ...user, ...data };
       setUser(updated);
-      SecureStore.setItemAsync("user", JSON.stringify(updated));
+      // Store without profileImage to avoid SecureStore size limit
+      const { profileImage, ...userForStorage } = updated;
+      SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
     }
   };
 
@@ -243,16 +247,40 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     try {
       const res = await api.get(`/my-history/${simId}`);
       // Map 'data' field to 'parameters' for consistency with UI code
-      const experiments = res.data.map((exp: any) => ({
-        ...exp,
-        parameters: exp.data || exp.parameters || {}
-      }));
+      // Ensure all required fields have default values to prevent crashes
+      const experiments = res.data.map((exp: any) => {
+        const rawData = exp.data || exp.parameters || {};
+        const safeParams: PendulumParams = {
+          length: rawData.length ?? defaultParams.length,
+          mass: rawData.mass ?? defaultParams.mass,
+          gravity: rawData.gravity ?? defaultParams.gravity,
+          damping: rawData.damping ?? defaultParams.damping,
+          angle: rawData.angle ?? defaultParams.angle,
+          angularVelocity: rawData.angularVelocity ?? defaultParams.angularVelocity,
+        };
+        return {
+          ...exp,
+          parameters: safeParams,
+          data: safeParams,
+        };
+      });
       setSavedExperiments(experiments);
     } catch (e) { setSavedExperiments([]); }
     setIsLoadingSavedExperiments(false);
   };
 
-  const loadExperiment = (exp: SavedExperiment) => setLoadedParams({ ...exp.data });
+  const loadExperiment = (exp: SavedExperiment) => {
+    // Use parameters (which has safe defaults) instead of raw data
+    const safeParams: PendulumParams = {
+      length: exp.parameters?.length ?? defaultParams.length,
+      mass: exp.parameters?.mass ?? defaultParams.mass,
+      gravity: exp.parameters?.gravity ?? defaultParams.gravity,
+      damping: exp.parameters?.damping ?? defaultParams.damping,
+      angle: exp.parameters?.angle ?? defaultParams.angle,
+      angularVelocity: exp.parameters?.angularVelocity ?? defaultParams.angularVelocity,
+    };
+    setLoadedParams(safeParams);
+  };
 
   return (
     <AppContext.Provider value={{ simulations, selectedSimulation, isLoading, isLoadingSavedExperiments, currentParams, loadedParams, savedExperiments, fetchSimulations, selectSimulation, setCurrentParams, setLoadedParams, saveExperiment, fetchSavedExperiments, loadExperiment }}>
