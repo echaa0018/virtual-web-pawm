@@ -1,7 +1,7 @@
 // app/index.tsx
 // Home screen - replicates frontend/src/components/Homepage.tsx
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -203,6 +204,23 @@ function FilterDrawer({
 }) {
   const [expanded, setExpanded] = useState(true);
   const subjects = ["Physics", "Mathematics", "Chemistry"];
+  const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.85)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(slideAnim, {
+        toValue: -SCREEN_WIDTH * 0.85,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
 
   const toggleCategory = (cat: string) => {
     onCategoriesChange(
@@ -213,35 +231,40 @@ function FilterDrawer({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable className="flex-1 bg-black/50" onPress={onClose}>
-        <View className="absolute left-0 top-0 bottom-0 w-80 max-w-[85%] bg-white">
-          <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
-            <Text className="text-lg font-semibold text-gray-900">Filters</Text>
-            <TouchableOpacity onPress={onClose} className="p-2">
-              <X size={20} color="#6b7280" />
-            </TouchableOpacity>
-          </View>
-          <ScrollView className="flex-1 p-4">
-            <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-4">
-              <Text className="text-sm tracking-wider text-gray-800">SUBJECT ({selectedCategories.length})</Text>
-              {expanded ? <Minus size={16} color="#374151" /> : <Plus size={16} color="#374151" />}
-            </TouchableOpacity>
-            {expanded && subjects.map((subject) => (
-              <TouchableOpacity key={subject} onPress={() => toggleCategory(subject)} className="flex-row items-center gap-3 mb-3">
-                <View className={`w-5 h-5 rounded border ${selectedCategories.includes(subject) ? "bg-teal-600 border-teal-600" : "border-gray-300"} items-center justify-center`}>
-                  {selectedCategories.includes(subject) && <Text className="text-white text-xs">✓</Text>}
-                </View>
-                <Text className="text-gray-700">{subject}</Text>
+        <Animated.View 
+          style={{ transform: [{ translateX: slideAnim }] }}
+          className="absolute left-0 top-0 bottom-0 w-80 max-w-[85%] bg-white"
+        >
+          <Pressable onPress={(e) => e.stopPropagation()}>
+            <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
+              <Text className="text-lg font-semibold text-gray-900">Filters</Text>
+              <TouchableOpacity onPress={onClose} className="p-2">
+                <X size={20} color="#6b7280" />
               </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <View className="p-4 border-t border-gray-200">
-            <TouchableOpacity onPress={onClose} className="bg-teal-600 py-3 rounded-lg items-center">
-              <Text className="text-white font-semibold">Apply Filters</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+            <ScrollView className="p-4" style={{ maxHeight: Dimensions.get("window").height - 200 }}>
+              <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-4">
+                <Text className="text-sm tracking-wider text-gray-800">SUBJECT ({selectedCategories.length})</Text>
+                {expanded ? <Minus size={16} color="#374151" /> : <Plus size={16} color="#374151" />}
+              </TouchableOpacity>
+              {expanded && subjects.map((subject) => (
+                <TouchableOpacity key={subject} onPress={() => toggleCategory(subject)} className="flex-row items-center gap-3 mb-3">
+                  <View className={`w-5 h-5 rounded border ${selectedCategories.includes(subject) ? "bg-teal-600 border-teal-600" : "border-gray-300"} items-center justify-center`}>
+                    {selectedCategories.includes(subject) && <Text className="text-white text-xs">✓</Text>}
+                  </View>
+                  <Text className="text-gray-700">{subject}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <View className="p-4 border-t border-gray-200">
+              <TouchableOpacity onPress={onClose} className="bg-teal-600 py-3 rounded-lg items-center">
+                <Text className="text-white font-semibold">Apply Filters</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );

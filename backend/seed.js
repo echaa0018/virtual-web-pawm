@@ -13,19 +13,20 @@ async function main() {
     create: {
       email: 'student@university.edu',
       name: 'Jane Doe',
-      password: hashedPassword, // <--- This was the missing part!
+      password: hashedPassword,
     },
   });
 
-  // 3. Clear existing simulations first
-  await prisma.simulation.deleteMany({});
-
-  // 4. Create Physics Simulations
-  const pendulumSim = await prisma.simulation.create({
-    data: {
+  // 3. Upsert Physics Simulations (uses title as unique identifier)
+  const pendulumSim = await prisma.simulation.upsert({
+    where: { title: 'Simple Pendulum' },
+    update: {
+      image: '/simple-pendulum.jpg',
+    },
+    create: {
       title: 'Simple Pendulum',
       description: 'Explore the physics of a simple pendulum and how length, mass, and gravity affect its motion.',
-      image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=600&h=400&fit=crop',
+      image: '/simple-pendulum.jpg',
       category: 'Physics',
       config: {
         defaultLength: 200,
@@ -36,11 +37,15 @@ async function main() {
     }
   });
 
-  const waveSim = await prisma.simulation.create({
-    data: {
+  const waveSim = await prisma.simulation.upsert({
+    where: { title: 'Wave Interference' },
+    update: {
+      image: '/wave-interference.jpg',
+    },
+    create: {
       title: 'Wave Interference',
       description: 'Visualize constructive and destructive interference patterns of waves.',
-      image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=400&fit=crop',
+      image: '/wave-interference.jpg',
       category: 'Physics',
       config: {
         hasSimulation: false
@@ -48,11 +53,15 @@ async function main() {
     }
   });
 
-  const projectileSim = await prisma.simulation.create({
-    data: {
+  const projectileSim = await prisma.simulation.upsert({
+    where: { title: 'Projectile Motion' },
+    update: {
+      image: '/projectile-motion.webp',
+    },
+    create: {
       title: 'Projectile Motion',
       description: 'Study the trajectory of objects under the influence of gravity.',
-      image: 'https://images.unsplash.com/photo-1534224039826-c7a0edd44c1c?w=600&h=400&fit=crop',
+      image: '/projectile-motion.webp',
       category: 'Physics',
       config: {
         hasSimulation: false
@@ -60,12 +69,16 @@ async function main() {
     }
   });
 
-  // 5. Create Mathematics Simulations
-  const graphSim = await prisma.simulation.create({
-    data: {
+  // 4. Upsert Mathematics Simulations
+  const graphSim = await prisma.simulation.upsert({
+    where: { title: 'Function Grapher' },
+    update: {
+      image: '/function-grapher.jpeg',
+    },
+    create: {
       title: 'Function Grapher',
       description: 'Plot and visualize mathematical functions in real-time.',
-      image: 'https://images.unsplash.com/photo-1509228468518-180dd4864904?w=600&h=400&fit=crop',
+      image: '/function-grapher.jpeg',
       category: 'Mathematics',
       config: {
         hasSimulation: false
@@ -73,11 +86,15 @@ async function main() {
     }
   });
 
-  const fractalSim = await prisma.simulation.create({
-    data: {
+  const fractalSim = await prisma.simulation.upsert({
+    where: { title: 'Fractal Explorer' },
+    update: {
+      image: '/fractal-explorer.jpg',
+    },
+    create: {
       title: 'Fractal Explorer',
       description: 'Explore the fascinating world of fractals and self-similar patterns.',
-      image: 'https://images.unsplash.com/photo-1545987796-200677ee1011?w=600&h=400&fit=crop',
+      image: '/fractal-explorer.jpg',
       category: 'Mathematics',
       config: {
         hasSimulation: false
@@ -85,12 +102,16 @@ async function main() {
     }
   });
 
-  // 6. Create Chemistry Simulations
-  const moleculeSim = await prisma.simulation.create({
-    data: {
+  // 5. Upsert Chemistry Simulations
+  const moleculeSim = await prisma.simulation.upsert({
+    where: { title: 'Molecular Structure' },
+    update: {
+      image: '/molecular-structure.jpg',
+    },
+    create: {
       title: 'Molecular Structure',
       description: 'Visualize 3D molecular structures and chemical bonds.',
-      image: 'https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=600&h=400&fit=crop',
+      image: '/molecular-structure.jpg',
       category: 'Chemistry',
       config: {
         hasSimulation: false
@@ -98,11 +119,15 @@ async function main() {
     }
   });
 
-  const phSim = await prisma.simulation.create({
-    data: {
+  const phSim = await prisma.simulation.upsert({
+    where: { title: 'pH Scale Simulator' },
+    update: {
+      image: '/ph-scale-simulator.png',
+    },
+    create: {
       title: 'pH Scale Simulator',
       description: 'Understand acids, bases, and the pH scale through interactive experiments.',
-      image: 'https://images.unsplash.com/photo-1603126857599-f6e157fa2fe6?w=600&h=400&fit=crop',
+      image: '/ph-scale-simulator.png',
       category: 'Chemistry',
       config: {
         hasSimulation: false

@@ -1,6 +1,7 @@
 // server.js
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -13,6 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-change-this";
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' })); // Increased limit for base64 images
+
+// Serve static files from the public folder
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- MIDDLEWARE ---
 // This checks if the user sends a valid token

@@ -83,7 +83,7 @@ export function Footer() {
         {/* Copyright */}
         <div className="border-t border-gray-700 mt-8 pt-6 text-center">
           <p className="text-sm">
-            © {currentYear} PhET Interactive Simulations. All rights reserved.
+            © {currentYear} Houshou Interactive Simulations. All rights reserved.
           </p>
         </div>
       </div>

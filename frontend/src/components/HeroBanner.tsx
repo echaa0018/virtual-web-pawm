@@ -20,7 +20,7 @@ export function HeroBanner() {
       <div className="relative h-full flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-white text-4xl sm:text-5xl lg:text-6xl font-bold mb-2">Virtual Lab</h1>
-          <p className="text-white text-lg sm:text-xl opacity-90">Interactive Science Simulations</p>
+          <p className="text-white text-lg sm:text-xl opacity-90">Interactive Simulations</p>
         </div>
       </div>
     </div>

@@ -63,7 +63,7 @@ export function Header({
             />
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 leading-none">Houshou</h1>
-              <p className="text-xs sm:text-sm text-teal-600 font-medium">Interactive Physics Simulations</p>
+              <p className="text-xs sm:text-sm text-teal-600 font-medium">Interactive Simulations</p>
             </div>
           </div>
 
