@@ -153,6 +153,35 @@ app.get('/api/my-history/:simulationId', authenticateToken, async (req, res) => 
     }
 });
 
+// 5. Delete Experiment (Protected)
+app.delete('/api/experiments/:experimentId', authenticateToken, async (req, res) => {
+    const userId = req.user.userId;
+    const { experimentId } = req.params;
+    
+    try {
+        // Verify the experiment belongs to the user
+        const experiment = await prisma.simulationState.findFirst({
+            where: {
+                id: parseInt(experimentId),
+                userId: parseInt(userId)
+            }
+        });
+        
+        if (!experiment) {
+            return res.status(404).json({ error: "Experiment not found or access denied" });
+        }
+        
+        await prisma.simulationState.delete({
+            where: { id: parseInt(experimentId) }
+        });
+        
+        res.json({ message: "Experiment deleted successfully" });
+    } catch (error) {
+        console.error('Delete error:', error);
+        res.status(500).json({ error: "Failed to delete experiment" });
+    }
+});
+
 app.listen(PORT, () => {
   console.log(`Virtual Lab Backend running on port ${PORT}`);
 });

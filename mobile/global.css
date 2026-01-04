@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom utility classes that match the frontend styling */
+@layer utilities {
+  /* Text utilities */
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Base layer customizations */
+@layer base {
+  /* Default body styles */
+  * {
+    border-color: theme('colors.border');
+  }
+}
