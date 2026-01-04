@@ -39,6 +39,9 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Image With Fallback Component
 // ============================================================================
 
+// Backend URL for static assets (same as API but without /api)
+const BACKEND_URL = "http://192.168.18.22:3000";
+
 function ImageWithFallback({ src, alt, style, className }: { src?: string | number; alt: string; style?: any; className?: string }) {
   const [error, setError] = useState(false);
 
@@ -51,7 +54,15 @@ function ImageWithFallback({ src, alt, style, className }: { src?: string | numb
   }
 
   // Handle both local assets (number from require()) and remote URLs (string)
-  const imageSource = typeof src === 'number' ? src : { uri: src };
+  let imageSource;
+  if (typeof src === 'number') {
+    imageSource = src;
+  } else if (src.startsWith('/')) {
+    // Relative path - prepend backend URL
+    imageSource = { uri: `${BACKEND_URL}${src}` };
+  } else {
+    imageSource = { uri: src };
+  }
 
   return (
     <Image
@@ -95,7 +106,7 @@ function Header() {
           />
           <View>
             <Text className="text-xl font-bold text-gray-900">Houshou</Text>
-            <Text className="text-xs text-teal-600 font-medium">Interactive Physics Simulations</Text>
+            <Text className="text-xs text-teal-600 font-medium">Interactive Simulations</Text>
           </View>
         </TouchableOpacity>
 
@@ -169,7 +180,7 @@ function HeroBanner() {
       <View className="absolute inset-0 bg-gradient-to-b from-blue-400/80 to-blue-600/80" />
       <View className="flex-1 items-center justify-center">
         <Text className="text-white text-4xl font-bold mb-2">Virtual Lab</Text>
-        <Text className="text-white text-lg opacity-90">Interactive Science Simulations</Text>
+        <Text className="text-white text-lg opacity-90">Interactive Simulations</Text>
       </View>
     </View>
   );
@@ -413,7 +424,7 @@ function Footer() {
       <Text className="text-gray-400 text-sm mb-4">
         Interactive Physics, Mathematics, and Chemistry simulations for hands-on learning.
       </Text>
-      <Text className="text-gray-500 text-xs">© {year} PhET Interactive Simulations. All rights reserved.</Text>
+      <Text className="text-gray-500 text-xs">© {year} Houshou Interactive Simulations. All rights reserved.</Text>
     </View>
   );
 }

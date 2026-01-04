@@ -254,9 +254,9 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.log("Using fallback simulations");
       setSimulations([
-        { id: 1, title: "Simple Pendulum", description: "Explore simple harmonic motion with an interactive pendulum.", category: "Physics", image: "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=400", isNew: true, config: { hasSimulation: true } },
-        { id: 2, title: "Wave Interference", description: "Visualize wave superposition and interference patterns.", category: "Physics", image: "https://images.unsplash.com/photo-1509228468518-180dd4864904?w=400", config: { hasSimulation: false } },
-        { id: 3, title: "Projectile Motion", description: "Study the trajectory of objects under gravity.", category: "Physics", image: "https://images.unsplash.com/photo-1517976487492-5750f3195933?w=400", config: { hasSimulation: false } },
+        { id: 1, title: "Simple Pendulum", description: "Explore simple harmonic motion with an interactive pendulum.", category: "Physics", image: "/simple-pendulum.jpg", isNew: true, config: { hasSimulation: true } },
+        { id: 2, title: "Wave Interference", description: "Visualize wave superposition and interference patterns.", category: "Physics", image: "/wave-interference.jpg", config: { hasSimulation: false } },
+        { id: 3, title: "Projectile Motion", description: "Study the trajectory of objects under gravity.", category: "Physics", image: "/projectile-motion.webp", config: { hasSimulation: false } },
       ]);
     }
     setIsLoading(false);
