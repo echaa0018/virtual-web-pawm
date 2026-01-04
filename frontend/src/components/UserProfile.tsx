@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
 import { X, Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import api from '../lib/axios';
+import { supabase, updateProfile } from '../lib/supabase';
 
 interface UserData {
-  id?: number;
+  id?: string;
   email: string;
   name: string | null;
   profileImage?: string | null;
@@ -48,26 +48,31 @@ export function UserProfile({ user, onClose, onUpdate }: UserProfileProps) {
   };
 
   const handleSave = async () => {
+    if (!user.id) {
+      toast.error('User ID not found');
+      return;
+    }
+    
     setIsSaving(true);
     try {
-      // Save to backend
-      const response = await api.put('/user/profile', { 
+      // Save to Supabase
+      const updatedProfile = await updateProfile(user.id, { 
         name: displayName,
-        profileImage: profileImage
+        profile_image: profileImage
       });
       
-      const updatedUser = response.data;
-      
-      // Update localStorage
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      const updatedUser = {
+        ...user,
+        name: updatedProfile.name,
+        profileImage: updatedProfile.profile_image
+      };
       
       onUpdate(updatedUser);
       toast.success('Profile updated successfully!');
       onClose();
     } catch (err: any) {
       console.error('Failed to update profile:', err);
-      const errorMsg = err.response?.data?.details || err.response?.data?.error || err.message;
-      toast.error('Failed to save changes: ' + errorMsg);
+      toast.error('Failed to save changes: ' + err.message);
     } finally {
       setIsSaving(false);
     }

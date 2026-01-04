@@ -1,12 +1,12 @@
 // app/_layout.tsx
-// Root layout with providers, navigation, and API configuration
+// Root layout with providers, navigation, and Supabase configuration
 
 import { useEffect, useState, createContext, useContext } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import * as SecureStore from "expo-secure-store";
-import axios from "axios";
+import { supabase, getProfile, getSimulations, getSavedExperiments, saveExperiment as supabaseSaveExperiment, Profile, Simulation as SupabaseSimulation, SimulationState, PendulumParams } from "../lib/supabase";
+import { Session, User } from "@supabase/supabase-js";
 
 // Import global styles for NativeWind
 import "../global.css";
@@ -16,7 +16,7 @@ import "../global.css";
 // ============================================================================
 
 export interface UserData {
-  id: number;
+  id: string;
   email: string;
   name: string | null;
   profileImage?: string | null;
@@ -38,27 +38,20 @@ export interface Simulation {
   };
 }
 
-export interface PendulumParams {
-  length: number;
-  mass: number;
-  gravity: number;
-  damping: number;
-  angle: number;
-  angularVelocity: number;
-}
+export { PendulumParams };
 
 export interface SavedExperiment {
-  id: number;  // Backend uses integer IDs
+  id: number;
   name: string;
-  data: PendulumParams;  // Backend uses 'data' not 'parameters'
-  parameters: PendulumParams;  // We'll map 'data' to 'parameters' for consistency
+  data: PendulumParams;
+  parameters: PendulumParams;
   createdAt: string;
   simulationId?: number;
 }
 
 interface AuthContextType {
   user: UserData | null;
-  token: string | null;
+  session: Session | null;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name?: string) => Promise<void>;
@@ -85,33 +78,7 @@ interface AppContextType {
 }
 
 // ============================================================================
-// API Configuration
-// ============================================================================
-
-// Use your computer's IP address for mobile testing
-const API_BASE_URL = "http://192.168.18.22:3000/api";
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: { "Content-Type": "application/json" },
-});
-
-api.interceptors.request.use(
-  async (config) => {
-    try {
-      const token = await SecureStore.getItemAsync("token");
-      if (token) config.headers.Authorization = `Bearer ${token}`;
-    } catch (e) {}
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-export { api };
-
-// ============================================================================
-// Auth Context
+// Auth Context (Supabase)
 // ============================================================================
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -124,98 +91,102 @@ export function useAuth() {
 
 function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserData | null>(null);
-  const [token, setToken] = useState<string | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load cached user on startup, then fetch fresh data
+  // Listen for auth state changes
   useEffect(() => {
-    (async () => {
-      try {
-        const t = await SecureStore.getItemAsync("token");
-        const u = await SecureStore.getItemAsync("user");
-        if (t && u) { 
-          setToken(t); 
-          setUser(JSON.parse(u));
-          // Fetch fresh profile data from server
-          fetchUserProfile(t);
-        }
-      } catch (e) {}
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user);
+      }
       setIsLoading(false);
-    })();
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        loadUserProfile(session.user);
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch fresh user profile from server
-  const fetchUserProfile = async (authToken?: string) => {
+  const loadUserProfile = async (authUser: User) => {
     try {
-      const tokenToUse = authToken || token;
-      if (!tokenToUse) return;
-      
-      const res = await api.get("/user/profile", {
-        headers: { Authorization: `Bearer ${tokenToUse}` }
+      const profile = await getProfile(authUser.id);
+      const userData: UserData = {
+        id: authUser.id,
+        email: authUser.email || '',
+        name: profile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || null,
+        profileImage: profile?.profile_image,
+        createdAt: profile?.created_at,
+      };
+      setUser(userData);
+    } catch (e) {
+      console.error("Failed to load user profile", e);
+      // Still set basic user info even if profile fetch fails
+      setUser({
+        id: authUser.id,
+        email: authUser.email || '',
+        name: authUser.user_metadata?.name || authUser.email?.split('@')[0] || null,
       });
-      const freshUser: UserData = res.data;
-      setUser(freshUser);
-      // Store without profileImage to avoid SecureStore size limit
-      const { profileImage, ...userForStorage } = freshUser;
-      await SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
-    } catch (e: any) {
-      console.error("Failed to fetch user profile", e);
-      // If token is invalid, sign out
-      if (e?.response?.status === 401 || e?.response?.status === 403) {
-        signOut();
-      }
     }
   };
 
   const signIn = async (email: string, password: string) => {
-    const res = await api.post("/auth/login", { email, password });
-    // Backend returns { token, name, email, profileImage } - construct user object
-    const { token: t, name, email: userEmail, profileImage } = res.data;
-    // Don't store profileImage in SecureStore (too large, causes warnings)
-    const u: UserData = { id: 0, email: userEmail, name, profileImage };
-    const userForStorage: UserData = { id: 0, email: userEmail, name }; // Without profileImage
-    await SecureStore.setItemAsync("token", t);
-    await SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
-    setToken(t); setUser(u);
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    // Session will be set by onAuthStateChange listener
   };
 
   const signUp = async (email: string, password: string, name?: string) => {
-    // Register first
-    await api.post("/auth/register", { email, password, name });
-    // Then login to get token
-    await signIn(email, password);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name: name || email.split('@')[0] }
+      }
+    });
+    if (error) throw error;
+    // If email confirmation is disabled, user will be signed in automatically
   };
 
   const signOut = async () => {
-    await SecureStore.deleteItemAsync("token");
-    await SecureStore.deleteItemAsync("user");
-    setToken(null); setUser(null);
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+    setUser(null);
+    setSession(null);
   };
 
   const updateUser = (data: Partial<UserData>) => {
     if (user) {
-      const updated = { ...user, ...data };
-      setUser(updated);
-      // Store without profileImage to avoid SecureStore size limit
-      const { profileImage, ...userForStorage } = updated;
-      SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
+      setUser({ ...user, ...data });
     }
   };
 
-  // Expose refreshUser to manually trigger a profile refresh
   const refreshUser = async () => {
-    await fetchUserProfile();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      await loadUserProfile(authUser);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, signIn, signUp, signOut, updateUser, refreshUser }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signIn, signUp, signOut, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 // ============================================================================
-// App Context
+// App Context (Supabase)
 // ============================================================================
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -244,13 +215,25 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   const [loadedParams, setLoadedParams] = useState<PendulumParams | null>(null);
   const [savedExperiments, setSavedExperiments] = useState<SavedExperiment[]>([]);
 
-  useEffect(() => { fetchSimulations(); }, []);
+  useEffect(() => { fetchSimulationsFromSupabase(); }, []);
 
-  const fetchSimulations = async () => {
+  const fetchSimulationsFromSupabase = async () => {
     setIsLoading(true);
     try {
-      const res = await api.get("/simulations");
-      setSimulations(res.data);
+      const data = await getSimulations();
+      // Map Supabase snake_case to camelCase for UI
+      const mapped: Simulation[] = data.map((sim) => ({
+        id: sim.id,
+        title: sim.title,
+        description: sim.description || undefined,
+        category: sim.category || undefined,
+        subcategory: sim.subcategory || undefined,
+        image: sim.image || undefined,
+        isNew: sim.is_new,
+        createdAt: sim.created_at,
+        config: sim.config,
+      }));
+      setSimulations(mapped);
     } catch (e) {
       console.log("Using fallback simulations");
       setSimulations([
@@ -267,24 +250,19 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
     setLoadedParams(null);
   };
 
-  const saveExperiment = async (name: string) => {
+  const saveExperimentHandler = async (name: string) => {
     if (!user || !currentParams || !selectedSimulation) throw new Error("Missing data");
-    await api.post("/save-progress", { 
-      simulationId: selectedSimulation.id, 
-      name, 
-      data: currentParams  // Backend expects 'data' field
-    });
+    await supabaseSaveExperiment(selectedSimulation.id, name, currentParams);
   };
 
-  const fetchSavedExperiments = async (simId: number) => {
+  const fetchSavedExperimentsFromSupabase = async (simId: number) => {
     if (!user) return;
     setIsLoadingSavedExperiments(true);
     try {
-      const res = await api.get(`/my-history/${simId}`);
-      // Map 'data' field to 'parameters' for consistency with UI code
-      // Ensure all required fields have default values to prevent crashes
-      const experiments = res.data.map((exp: any) => {
-        const rawData = exp.data || exp.parameters || {};
+      const data = await getSavedExperiments(simId);
+      // Map Supabase data to SavedExperiment format
+      const experiments: SavedExperiment[] = data.map((exp) => {
+        const rawData = exp.data || {};
         const safeParams: PendulumParams = {
           length: rawData.length ?? defaultParams.length,
           mass: rawData.mass ?? defaultParams.mass,
@@ -294,18 +272,23 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
           angularVelocity: rawData.angularVelocity ?? defaultParams.angularVelocity,
         };
         return {
-          ...exp,
-          parameters: safeParams,
+          id: exp.id,
+          name: exp.name,
           data: safeParams,
+          parameters: safeParams,
+          createdAt: exp.created_at,
+          simulationId: exp.simulation_id,
         };
       });
       setSavedExperiments(experiments);
-    } catch (e) { setSavedExperiments([]); }
+    } catch (e) { 
+      console.error("Failed to fetch saved experiments:", e);
+      setSavedExperiments([]); 
+    }
     setIsLoadingSavedExperiments(false);
   };
 
   const loadExperiment = (exp: SavedExperiment) => {
-    // Use parameters (which has safe defaults) instead of raw data
     const safeParams: PendulumParams = {
       length: exp.parameters?.length ?? defaultParams.length,
       mass: exp.parameters?.mass ?? defaultParams.mass,
@@ -318,7 +301,22 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ simulations, selectedSimulation, isLoading, isLoadingSavedExperiments, currentParams, loadedParams, savedExperiments, fetchSimulations, selectSimulation, setCurrentParams, setLoadedParams, saveExperiment, fetchSavedExperiments, loadExperiment }}>
+    <AppContext.Provider value={{ 
+      simulations, 
+      selectedSimulation, 
+      isLoading, 
+      isLoadingSavedExperiments, 
+      currentParams, 
+      loadedParams, 
+      savedExperiments, 
+      fetchSimulations: fetchSimulationsFromSupabase, 
+      selectSimulation, 
+      setCurrentParams, 
+      setLoadedParams, 
+      saveExperiment: saveExperimentHandler, 
+      fetchSavedExperiments: fetchSavedExperimentsFromSupabase, 
+      loadExperiment 
+    }}>
       {children}
     </AppContext.Provider>
   );

@@ -8,12 +8,13 @@ import { AuthModal } from './components/AuthModal';
 import { SaveExperimentModal } from './components/SaveExperimentModal';
 import { UserProfile } from './components/UserProfile';
 import { Toaster } from './components/ui/sonner';
-import api from './lib/axios';
+import { supabase, getSimulations, getProfile } from './lib/supabase';
+import type { Simulation } from './lib/supabase';
 
 function App() {
   const [page, setPage] = useState<'home' | 'detail'>('home');
   const [selectedSim, setSelectedSim] = useState<any>(null);
-  const [simulations, setSimulations] = useState([]); // List from Backend
+  const [simulations, setSimulations] = useState<Simulation[]>([]); // List from Supabase
   const [user, setUser] = useState<any>(null);
   
   // Modals
@@ -26,48 +27,60 @@ function App() {
   const [currentParams, setCurrentParams] = useState<any>(null);
   const [saveHandler, setSaveHandler] = useState<((name: string) => void) | null>(null);
 
-  // 1. Check for logged in user on load and fetch fresh profile data
+  // 1. Check for logged in user on load with Supabase
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (token && storedUser) {
-      // Set cached user first for immediate display
-      setUser(JSON.parse(storedUser));
-      // Then fetch fresh data from server
-      fetchUserProfile();
-    }
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadUserData(session.user.id);
+      }
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadUserData(session.user.id);
+      } else {
+        setUser(null);
+      }
+    });
+
     fetchSimulations();
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Fetch fresh user profile from server
-  const fetchUserProfile = async () => {
+  // Load user data from Supabase profile
+  const loadUserData = async (userId: string) => {
     try {
-      const res = await api.get('/user/profile');
-      const freshUser = res.data;
-      setUser(freshUser);
-      localStorage.setItem('user', JSON.stringify(freshUser));
+      const profile = await getProfile(userId);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (profile && authUser) {
+        setUser({
+          id: userId,
+          email: authUser.email,
+          name: profile.name || authUser.user_metadata?.name || authUser.email?.split('@')[0],
+          profileImage: profile.profile_image
+        });
+      }
     } catch (err) {
       console.error("Failed to fetch user profile", err);
-      // If token is invalid, log out
-      if ((err as any)?.response?.status === 401 || (err as any)?.response?.status === 403) {
-        handleLogout();
-      }
     }
   };
 
-  // 2. Fetch Simulations from Backend
+  // 2. Fetch Simulations from Supabase
   const fetchSimulations = async () => {
     try {
-      const res = await api.get('/simulations');
-      setSimulations(res.data);
+      const data = await getSimulations();
+      setSimulations(data);
     } catch (err) {
       console.error("Failed to load simulations", err);
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
     setPage('home');
   };

@@ -1,9 +1,20 @@
 // src/components/SimulationDetailPage.tsx
 import React, { useState, useEffect } from 'react';
 import { PendulumSimulator } from './PendulumSimulator';
-import api from '../lib/axios';
+import { supabase, getSavedExperiments, saveExperiment } from '../lib/supabase';
 import { toast } from 'sonner';
 import { Save, Download, X } from 'lucide-react';
+
+// Local type definition for saved experiments
+interface SavedExperimentState {
+  id: number;
+  user_id: string;
+  simulation_id: number;
+  name: string;
+  data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
 
 interface Props {
   simulation: any;
@@ -16,12 +27,13 @@ interface Props {
 export function SimulationDetailPage({ simulation, user, onBack, onParamsChange, onSaveHandlerReady }: Props) {
   const [activeTab, setActiveTab] = useState('simulation');
   const [currentParams, setCurrentParams] = useState<any>({}); // Current Sim State
-  const [history, setHistory] = useState<any[]>([]); // Saved experiments
+  const [history, setHistory] = useState<SavedExperimentState[]>([]); // Saved experiments
   const [showSaveUI, setShowSaveUI] = useState(false);
   const [loadedParams, setLoadedParams] = useState<any>(null); // Params loaded from saved experiment
   const [showSaveModal, setShowSaveModal] = useState(false); // Save modal visibility
   const [experimentName, setExperimentName] = useState(''); // Name for saved experiment
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // Loading state for history
+  
   // Notify parent when params change
   useEffect(() => {
     if (onParamsChange && currentParams) {
@@ -34,41 +46,33 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     if (onSaveHandlerReady) {
       onSaveHandlerReady(async (name: string) => {
         try {
-          await api.post('/save-progress', {
-            simulationId: parseInt(simulation.id),
-            name: name,
-            data: currentParams
-          });
+          await saveExperiment(parseInt(simulation.id), name, currentParams);
           toast.success('Experiment saved successfully!');
         } catch (err: any) {
           console.error('Save error:', err);
-          if (err.response?.status === 401 || err.response?.status === 403) {
-            toast.error('Session expired. Please login again.');
+          if (err.message?.includes('logged in')) {
+            toast.error('Please login to save experiments.');
           } else {
-            toast.error('Failed to save: ' + (err.response?.data?.error || err.message));
+            toast.error('Failed to save: ' + err.message);
           }
         }
       });
     }
   }, [simulation.id, currentParams, onSaveHandlerReady]);
 
-  // Function to fetch saved experiments
+  // Function to fetch saved experiments from Supabase
   const fetchHistory = async () => {
     if (!user) return;
     
     setIsLoadingHistory(true);
     try {
       console.log('Fetching history for simulation:', simulation.id);
-      const res = await api.get(`/my-history/${simulation.id}`);
-      console.log('History response:', res.data);
-      setHistory(res.data);
+      const experiments = await getSavedExperiments(parseInt(simulation.id));
+      console.log('History response:', experiments);
+      setHistory(experiments);
     } catch (err: any) {
       console.error('Failed to fetch history:', err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
-        toast.error('Session expired. Please login again to view saved experiments.');
-      } else {
-        toast.error('Failed to load saved experiments');
-      }
+      toast.error('Failed to load saved experiments');
     } finally {
       setIsLoadingHistory(false);
     }
@@ -82,9 +86,11 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     }
   }, [activeTab, simulation.id, user]);
 
-  const openSaveModal = () => {
-    const token = localStorage.getItem('token');
-    if (!user || !token) {
+  const openSaveModal = async () => {
+    // Check Supabase session instead of localStorage token
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (!user || !session) {
       toast.error("Please login to save progress");
       return;
     }
@@ -106,11 +112,11 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     }
     
     try {
-      await api.post('/save-progress', {
-        simulationId: parseInt(simulation.id), // Ensure it's an integer
-        name: experimentName.trim(),
-        data: currentParams // <--- Saves the pendulum state (length, mass, etc)
-      });
+      await saveExperiment(
+        parseInt(simulation.id),
+        experimentName.trim(),
+        currentParams
+      );
       toast.success('Experiment saved successfully!');
       setShowSaveModal(false);
       setExperimentName('');
@@ -118,10 +124,10 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       fetchHistory();
     } catch (err: any) {
       console.error('Save error:', err);
-      if (err.response?.status === 401 || err.response?.status === 403) {
+      if (err.message?.includes('logged in')) {
         toast.error('Session expired. Please login again.');
       } else {
-        toast.error('Failed to save: ' + (err.response?.data?.error || err.message));
+        toast.error('Failed to save: ' + err.message);
       }
     }
   };
@@ -203,7 +209,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
                 <div key={item.id} className="p-4 border rounded flex justify-between items-center bg-gray-50">
                   <div>
                     <p className="font-bold text-gray-800">{item.name || `Experiment #${item.id}`}</p>
-                    <p className="text-sm text-gray-500">{new Date(item.createdAt).toLocaleString()}</p>
+                    <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
                     {/* Display the JSON data cleanly */}
                     <p className="text-xs font-mono text-gray-600 mt-1">
                       {JSON.stringify(item.data).slice(0, 60)}...

@@ -1,5 +1,5 @@
 // app/auth/login.tsx
-// Login screen - replicates frontend AuthModal login functionality
+// Login screen using Supabase authentication
 
 import { useState } from "react";
 import {
@@ -55,7 +55,7 @@ export default function LoginScreen() {
       router.replace("/");
     } catch (error: any) {
       console.error("Login error:", error);
-      Alert.alert("Login Failed", error.response?.data?.error || "Invalid email or password");
+      Alert.alert("Login Failed", error.message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }

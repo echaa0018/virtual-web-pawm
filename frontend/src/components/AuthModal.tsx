@@ -1,7 +1,7 @@
 // src/components/AuthModal.tsx
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import api from '../lib/axios'; // Import our API client
+import { supabase, signIn, signUp, getProfile } from '../lib/supabase';
 
 interface AuthModalProps {
   mode: 'login' | 'register';
@@ -24,21 +24,39 @@ export function AuthModal({ mode, onClose, onSuccess, onSwitchMode }: AuthModalP
 
     try {
       if (mode === 'login') {
-        // LOGIN
-        const res = await api.post('/auth/login', { email, password });
-        // Save token to browser storage
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data));
-        onSuccess(res.data);
+        // LOGIN with Supabase
+        const { user, session } = await signIn(email, password);
+        
+        if (user && session) {
+          // Fetch the user profile
+          const profile = await getProfile(user.id);
+          
+          const userData = {
+            id: user.id,
+            email: user.email,
+            name: profile?.name || user.user_metadata?.name || email.split('@')[0],
+            profileImage: profile?.profile_image,
+            token: session.access_token
+          };
+          
+          onSuccess(userData);
+        }
       } else {
-        // REGISTER
-        await api.post('/auth/register', { email, password, name });
-        // Auto login after register, or ask user to switch to login
-        alert('Account created! Please sign in.');
-        onSwitchMode();
+        // REGISTER with Supabase
+        const { user } = await signUp(email, password, name);
+        
+        if (user) {
+          // Check if email confirmation is required
+          if (user.identities?.length === 0) {
+            setError('This email is already registered. Please sign in.');
+          } else {
+            alert('Account created! Please check your email to confirm, then sign in.');
+            onSwitchMode();
+          }
+        }
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Authentication failed');
+      setError(err.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }

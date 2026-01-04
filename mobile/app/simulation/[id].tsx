@@ -29,7 +29,7 @@ import {
   Loader,
 } from "lucide-react-native";
 
-import { useAuth, useApp, PendulumParams, SavedExperiment, api } from "./../_layout";
+import { useAuth, useApp, PendulumParams, SavedExperiment } from "./../_layout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 32, 350);
