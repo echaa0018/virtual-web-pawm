@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { HeroBanner } from './HeroBanner';
 import { FilterSidebar } from './FilterSidebar';
 import { ResultsGrid } from './ResultsGrid';

@@ -1,7 +1,7 @@
 // src/components/AuthModal.tsx
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
-import { supabase, signIn, signUp, getProfile } from '../lib/supabase';
+import { signIn, signUp, getProfile } from '../lib/supabase';
 
 interface AuthModalProps {
   mode: 'login' | 'register';

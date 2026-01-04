@@ -1,123 +1,96 @@
-// supabase/seed.ts
-// Run with: npx ts-node supabase/seed.ts
-// Or: npx tsx supabase/seed.ts
-// Make sure to install: npm install @supabase/supabase-js
-
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+import * as path from 'path';
 
-// Use your Supabase credentials
-const SUPABASE_URL = 'https://siwrlxpqpiypzmndjdmw.supabase.co';
-// Using service_role key to bypass RLS for seeding
-// Get from Supabase Dashboard > Settings > API > service_role key
-const SUPABASE_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpd3JseHBxcGl5cHptbmRqZG13Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzUyMzc2MywiZXhwIjoyMDgzMDk5NzYzfQ.wWh2G0HoEglsOOrz-CqNlFwFFLESpjz-7Po_7WJmVcg';
+dotenv.config({ path: path.resolve(__dirname, '../frontend/.env') });
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-interface SimulationData {
-  title: string;
-  description: string;
-  image: string;
-  category: string;
-  subcategory?: string;
-  is_new?: boolean;
-  config: Record<string, any>;
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ Missing Supabase environment variables!');
+  console.error('   Make sure VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set in frontend/.env');
+  process.exit(1);
 }
 
-async function seed() {
-  console.log('🌱 Starting seed...');
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-  // ============================================================================
-  // Seed Simulations (no user needed - public data)
-  // ============================================================================
-
-  const simulations: SimulationData[] = [
-    // Physics Simulations
-    {
-      title: 'Simple Pendulum',
-      description: 'Explore the physics of a simple pendulum and how length, mass, and gravity affect its motion.',
-      image: '/simple-pendulum.jpg',
-      category: 'Physics',
-      config: {
-        defaultLength: 200,
-        defaultMass: 20,
-        defaultGravity: 9.8,
-        hasSimulation: true
-      }
-    },
-    {
-      title: 'Wave Interference',
-      description: 'Visualize constructive and destructive interference patterns of waves.',
-      image: '/wave-interference.jpg',
-      category: 'Physics',
-      config: { hasSimulation: false }
-    },
-    {
-      title: 'Projectile Motion',
-      description: 'Study the trajectory of objects under the influence of gravity.',
-      image: '/projectile-motion.webp',
-      category: 'Physics',
-      config: { hasSimulation: false }
-    },
-
-    // Mathematics Simulations
-    {
-      title: 'Function Grapher',
-      description: 'Plot and visualize mathematical functions in real-time.',
-      image: '/function-grapher.jpeg',
-      category: 'Mathematics',
-      config: { hasSimulation: false }
-    },
-    {
-      title: 'Fractal Explorer',
-      description: 'Explore the fascinating world of fractals and self-similar patterns.',
-      image: '/fractal-explorer.jpg',
-      category: 'Mathematics',
-      config: { hasSimulation: false }
-    },
-
-    // Chemistry Simulations
-    {
-      title: 'Molecular Structure',
-      description: 'Visualize 3D molecular structures and chemical bonds.',
-      image: '/molecular-structure.jpg',
-      category: 'Chemistry',
-      config: { hasSimulation: false }
-    },
-    {
-      title: 'pH Scale Simulator',
-      description: 'Understand acids, bases, and the pH scale through interactive experiments.',
-      image: '/ph-scale-simulator.png',
-      category: 'Chemistry',
-      config: { hasSimulation: false }
+const simulations = [
+  {
+    title: 'Simple Pendulum',
+    description: 'Explore the physics of a simple pendulum. Adjust length, mass, and gravity to see how they affect the period of oscillation.',
+    category: 'Physics',
+    image: '/simple-pendulum.jpg',
+    config: {
+      hasSimulation: true,
+      component: 'PendulumSimulator'
     }
-  ];
+  },
+  {
+    title: 'Function Grapher',
+    description: 'Visualize mathematical functions in real-time. Enter algebraic expressions to see their 2D plots.',
+    category: 'Mathematics',
+    image: '/function-grapher.jpeg',
+    config: {
+      hasSimulation: true,
+      component: 'MathSimulator'
+    }
+  },
+  {
+    title: 'pH Scale Simulator',
+    description: 'Test the pH of various common liquids. Visualize the acidity or alkalinity on a dynamic color scale.',
+    category: 'Chemistry',
+    image: '/ph-scale-simulator.png',
+    config: {
+      hasSimulation: true,
+      component: 'ChemistrySimulator'
+    }
+  },
+  {
+    title: 'Projectile Motion',
+    description: 'Launch objects and study their parabolic trajectories under gravity with air resistance.',
+    category: 'Physics',
+    image: '/projectile-motion.webp',
+    config: {
+      hasSimulation: false
+    }
+  },
+  {
+    title: 'Wave Interference',
+    description: 'Observe how two waves interact with each other to form constructive and destructive interference patterns.',
+    category: 'Physics',
+    image: '/wave-interference.jpg',
+    config: {
+      hasSimulation: false
+    }
+  },
+  {
+    title: 'Molecular Structure',
+    description: 'Explore 3D models of simple and complex molecules.',
+    category: 'Chemistry',
+    image: '/molecular-structure.jpg',
+    config: {
+      hasSimulation: false
+    }
+  }
+];
 
-  // Upsert simulations (insert or update if title exists)
+async function seed() {
+  console.log('🌱 Seeding simulations...');
+
   for (const sim of simulations) {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from('simulations')
-      .upsert(
-        { ...sim },
-        { onConflict: 'title' }
-      )
-      .select();
+      .upsert(sim, { onConflict: 'title' });
 
     if (error) {
-      console.error(`❌ Error seeding "${sim.title}":`, error.message);
+      console.error(`Error inserting ${sim.title}:`, error.message);
     } else {
-      console.log(`✅ Seeded: ${sim.title}`);
+      console.log(`Inserted/Updated: ${sim.title}`);
     }
   }
 
-  console.log('\n🎉 Seed completed!');
-
-  // List all simulations
-  const { data: allSims } = await supabase
-    .from('simulations')
-    .select('id, title, category');
-
-  console.log('\n📋 All simulations:');
-  console.table(allSims);
+  console.log('✨ Seeding complete!');
 }
 
-seed().catch(console.error);
+seed();

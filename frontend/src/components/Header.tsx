@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Microscope, Menu, X, LogOut, User, Settings, HelpCircle } from 'lucide-react';
+import { useState } from 'react';
+import { Menu, X, LogOut, User, Settings, HelpCircle } from 'lucide-react';
 
 // Define the structure of the user data coming from the backend
 interface UserData {

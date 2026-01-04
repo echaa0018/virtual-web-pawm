@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface PendulumParams {
   length: number;
@@ -19,14 +19,14 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
   const [angle, setAngle] = useState(Math.PI / 4); // radians
   const [angularVelocity, setAngularVelocity] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
-  const animationFrameRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   // Load initial params when provided (from saved experiment)
   useEffect(() => {
     if (initialParams) {
-      setLength(initialParams.length);
-      setMass(initialParams.mass);
-      setGravity(initialParams.gravity);
+      setLength(initialParams.length || 200);
+      setMass(initialParams.mass || 20);
+      setGravity(initialParams.gravity || 9.8);
       setAngle(Math.PI / 4); // Reset angle
       setAngularVelocity(0); // Reset velocity
       setIsRunning(false); // Stop simulation
@@ -101,7 +101,10 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
         ctx.lineWidth = 1;
         ctx.beginPath();
-        const trailLength = 20;
+        
+        // REDUCED TRAIL LENGTH to fix lag (was 20)
+        const trailLength = 5; 
+        
         for (let i = 0; i < trailLength; i++) {
           const trailAngle = angle - angularVelocity * i * 0.016;
           const trailX = centerX + length * Math.sin(trailAngle);
@@ -152,26 +155,20 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
     };
   }, [angle, angularVelocity, length, mass, gravity, isRunning]);
 
-  const handleReset = () => {
-    setIsRunning(false);
-    setAngle(Math.PI / 4);
-    setAngularVelocity(0);
-  };
-
   return (
     <div className="space-y-6">
-      {/* Canvas */}
-      <div className="bg-gradient-to-b from-sky-100 to-sky-50 rounded-lg overflow-hidden border-2 border-gray-300">
+      {/* Canvas - CENTERED with mx-auto */}
+      <div className="bg-gradient-to-b from-sky-100 to-sky-50 rounded-lg overflow-hidden border-2 border-gray-300 shadow-md max-w-3xl mx-auto">
         <canvas
           ref={canvasRef}
           width={800}
           height={500}
-          className="w-full"
+          className="w-full h-auto"
         />
       </div>
 
       {/* Controls */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
         {/* Left Column */}
         <div className="space-y-4">
           <div>
@@ -259,7 +256,7 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 max-w-4xl mx-auto">
         <button
           onClick={() => setIsRunning(!isRunning)}
           className={`flex-1 px-6 py-3 rounded-lg transition-colors ${
@@ -273,13 +270,12 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
       </div>
 
       {/* Information Panel */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-4xl mx-auto">
         <h3 className="font-medium text-blue-900 mb-2">📚 Pendulum Physics</h3>
         <p className="text-sm text-blue-800 leading-relaxed">
           A simple pendulum consists of a mass (bob) suspended from a fixed point by a string. 
           The period of oscillation depends on the length of the string and gravity, but is 
-          independent of the mass. The formula for period is T = 2π√(L/g), where L is the length 
-          and g is gravitational acceleration.
+          independent of the mass. The formula for period is T = 2π√(L/g).
         </p>
       </div>
     </div>

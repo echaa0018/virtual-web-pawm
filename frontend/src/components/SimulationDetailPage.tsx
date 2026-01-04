@@ -1,9 +1,10 @@
-// src/components/SimulationDetailPage.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { PendulumSimulator } from './PendulumSimulator';
+import { MathSimulator } from './MathSimulator';
+import { ChemistrySimulator } from './ChemistrySimulator';
 import { supabase, getSavedExperiments, saveExperiment } from '../lib/supabase';
 import { toast } from 'sonner';
-import { Save, Download, X } from 'lucide-react';
+import { Save, X } from 'lucide-react';
 
 // Local type definition for saved experiments
 interface SavedExperimentState {
@@ -28,7 +29,6 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   const [activeTab, setActiveTab] = useState('simulation');
   const [currentParams, setCurrentParams] = useState<any>({}); // Current Sim State
   const [history, setHistory] = useState<SavedExperimentState[]>([]); // Saved experiments
-  const [showSaveUI, setShowSaveUI] = useState(false);
   const [loadedParams, setLoadedParams] = useState<any>(null); // Params loaded from saved experiment
   const [showSaveModal, setShowSaveModal] = useState(false); // Save modal visibility
   const [experimentName, setExperimentName] = useState(''); // Name for saved experiment
@@ -66,9 +66,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     
     setIsLoadingHistory(true);
     try {
-      console.log('Fetching history for simulation:', simulation.id);
       const experiments = await getSavedExperiments(parseInt(simulation.id));
-      console.log('History response:', experiments);
       setHistory(experiments);
     } catch (err: any) {
       console.error('Failed to fetch history:', err);
@@ -80,14 +78,12 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
 
   // Fetch saved history when tab changes or user changes
   useEffect(() => {
-    console.log('History useEffect triggered:', { activeTab, simulationId: simulation.id, hasUser: !!user });
     if (activeTab === 'saved' && user) {
       fetchHistory();
     }
   }, [activeTab, simulation.id, user]);
 
   const openSaveModal = async () => {
-    // Check Supabase session instead of localStorage token
     const { data: { session } } = await supabase.auth.getSession();
     
     if (!user || !session) {
@@ -120,7 +116,6 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       toast.success('Experiment saved successfully!');
       setShowSaveModal(false);
       setExperimentName('');
-      // Refresh the history list
       fetchHistory();
     } catch (err: any) {
       console.error('Save error:', err);
@@ -133,44 +128,73 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   };
 
   const handleLoadExperiment = (experimentData: any) => {
-    // Set the loaded parameters (this will trigger the simulator to update)
-    setLoadedParams({ ...experimentData }); // Spread to create new reference
-    // Switch to simulation tab
+    setLoadedParams({ ...experimentData });
     setActiveTab('simulation');
   };
 
+  // Logic to determine which simulator to render based on title or ID
+  const renderSimulator = () => {
+      const title = simulation.title?.toLowerCase() || '';
+      
+      if (title.includes('pendulum') || title.includes('motion')) {
+          return (
+            <PendulumSimulator 
+                onParametersChange={(params) => setCurrentParams(params)} 
+                initialParams={loadedParams}
+            />
+          );
+      } else if (title.includes('graph') || title.includes('math') || title.includes('function')) {
+          return (
+            <MathSimulator 
+                onParametersChange={(params) => setCurrentParams(params)} 
+                initialParams={loadedParams}
+            />
+          );
+      } else if (title.includes('ph') || title.includes('chem') || title.includes('scale')) {
+          return (
+            <ChemistrySimulator 
+                onParametersChange={(params) => setCurrentParams(params)} 
+                initialParams={loadedParams}
+            />
+          );
+      } else {
+          // Default fallback
+          return (
+            <div className="text-center py-20">
+                <p className="text-gray-500">Simulation component not found for this type.</p>
+            </div>
+          );
+      }
+  };
+
   return (
-    <div className="bg-gray-50 min-h-screen p-8">
-      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm p-6">
+    <div className="bg-gray-50 min-h-screen p-4 sm:p-8">
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-sm p-4 sm:p-6">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">{simulation.title}</h1>
-          <button onClick={onBack} className="text-gray-500 hover:text-gray-700">Back to Home</button>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{simulation.title}</h1>
+          <button onClick={onBack} className="text-gray-500 hover:text-gray-700 font-medium">Back to Home</button>
         </div>
 
         {/* Tabs */}
         <div className="flex gap-4 border-b mb-6">
-          <button onClick={() => setActiveTab('simulation')} className={`pb-2 ${activeTab === 'simulation' ? 'border-b-2 border-teal-600 font-bold' : ''}`}>Simulation</button>
-          <button onClick={() => setActiveTab('saved')} className={`pb-2 ${activeTab === 'saved' ? 'border-b-2 border-teal-600 font-bold' : ''}`}>Saved Experiments</button>
+          <button onClick={() => setActiveTab('simulation')} className={`pb-2 px-2 transition-colors ${activeTab === 'simulation' ? 'border-b-2 border-teal-600 font-bold text-teal-800' : 'text-gray-600'}`}>Simulation</button>
+          <button onClick={() => setActiveTab('saved')} className={`pb-2 px-2 transition-colors ${activeTab === 'saved' ? 'border-b-2 border-teal-600 font-bold text-teal-800' : 'text-gray-600'}`}>Saved Experiments</button>
         </div>
 
         {/* --- SIMULATION TAB --- */}
         {activeTab === 'simulation' && (
           <div>
-            {/* Check if simulation has an active simulator */}
+            {/* Dynamic Simulator Rendering */}
             {simulation.config?.hasSimulation ? (
               <>
-                {/* Pass callback to capture state changes from the simulator */}
-                <PendulumSimulator 
-                  onParametersChange={(params) => setCurrentParams(params)} 
-                  initialParams={loadedParams}
-                />
+                {renderSimulator()}
                 
-                <div className="mt-6 flex justify-end">
+                <div className="mt-8 flex justify-end border-t pt-6">
                   <button 
                     onClick={openSaveModal}
-                    className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded hover:bg-teal-700"
+                    className="flex items-center gap-2 px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 shadow-sm transition-all hover:shadow-md"
                   >
                     <Save className="w-4 h-4" /> Save Current State
                   </button>
@@ -199,27 +223,32 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
         {activeTab === 'saved' && (
           <div className="space-y-4">
             {!user ? (
-               <p>Please log in to view saved experiments.</p>
+               <div className="text-center py-12 bg-gray-50 rounded-lg">
+                  <p className="text-gray-600 mb-2">Please log in to view saved experiments.</p>
+               </div>
             ) : isLoadingHistory ? (
-               <p className="text-gray-500">Loading saved experiments...</p>
+               <div className="text-center py-12">
+                   <p className="text-gray-500">Loading saved experiments...</p>
+               </div>
             ) : history.length === 0 ? (
-               <p className="text-gray-500">No saved experiments found.</p>
+               <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                   <p className="text-gray-500">No saved experiments found.</p>
+               </div>
             ) : (
               history.map((item) => (
-                <div key={item.id} className="p-4 border rounded flex justify-between items-center bg-gray-50">
+                <div key={item.id} className="p-4 border rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 hover:bg-gray-100 transition-colors gap-4">
                   <div>
-                    <p className="font-bold text-gray-800">{item.name || `Experiment #${item.id}`}</p>
+                    <p className="font-bold text-gray-800 text-lg">{item.name || `Experiment #${item.id}`}</p>
                     <p className="text-sm text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
-                    {/* Display the JSON data cleanly */}
-                    <p className="text-xs font-mono text-gray-600 mt-1">
-                      {JSON.stringify(item.data).slice(0, 60)}...
+                    <p className="text-xs font-mono text-gray-500 mt-1 truncate max-w-md">
+                      Data: {JSON.stringify(item.data).slice(0, 60)}...
                     </p>
                   </div>
                   <button 
                     onClick={() => handleLoadExperiment(item.data)}
-                    className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 text-sm transition-colors"
+                    className="w-full sm:w-auto px-5 py-2 bg-white border border-teal-600 text-teal-700 font-medium rounded hover:bg-teal-50 transition-colors"
                   >
-                    Load Experiment
+                    Load
                   </button>
                 </div>
               ))
@@ -232,7 +261,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       {/* Save Modal */}
       {showSaveModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 animate-in fade-in zoom-in duration-200">
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Save Experiment</h2>
@@ -253,17 +282,18 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
                 type="text"
                 value={experimentName}
                 onChange={(e) => setExperimentName(e.target.value)}
-                placeholder="Enter a name for your experiment..."
+                placeholder="My Awesome Experiment"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
                 autoFocus
               />
             </div>
 
             {/* Current Parameters Preview */}
-            <div className="mb-6 p-3 bg-gray-50 rounded-lg">
-              <p className="text-xs font-medium text-gray-500 mb-1">Current Parameters:</p>
-              <p className="text-sm font-mono text-gray-700">
-                Length: {currentParams.length}cm, Mass: {currentParams.mass}kg, Gravity: {currentParams.gravity}m/s²
+            <div className="mb-6 p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Preview Data:</p>
+              <p className="text-xs font-mono text-gray-600 break-all">
+                {JSON.stringify(currentParams).slice(0, 100)}
+                {JSON.stringify(currentParams).length > 100 ? '...' : ''}
               </p>
             </div>
 
@@ -277,7 +307,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
               </button>
               <button
                 onClick={handleSave}
-                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium"
               >
                 Save Experiment
               </button>

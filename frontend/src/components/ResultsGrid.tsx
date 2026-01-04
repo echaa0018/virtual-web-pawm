@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Grid3x3, List, Filter, Search } from 'lucide-react';
 import { SimulationCard } from './SimulationCard';
 

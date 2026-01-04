@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { X, Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase, updateProfile } from '../lib/supabase';
+import { updateProfile } from '../lib/supabase';
 
 interface UserData {
   id?: string;
