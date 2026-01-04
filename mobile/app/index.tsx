@@ -203,22 +203,41 @@ function FilterDrawer({
   onCategoriesChange: (categories: string[]) => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
   const subjects = ["Physics", "Mathematics", "Chemistry"];
-  const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH * 0.85)).current;
+  const slideAnim = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      setModalVisible(true);
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
     } else {
-      Animated.timing(slideAnim, {
-        toValue: -SCREEN_WIDTH * 0.85,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: -SCREEN_WIDTH,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setModalVisible(false);
+      });
     }
   }, [visible]);
 
@@ -231,20 +250,26 @@ function FilterDrawer({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable className="flex-1 bg-black/50" onPress={onClose}>
+    <Modal visible={modalVisible} transparent animationType="none" onRequestClose={onClose}>
+      <View className="flex-1">
+        <Animated.View 
+          style={{ opacity: fadeAnim }}
+          className="absolute inset-0 bg-black/50"
+        >
+          <Pressable className="flex-1" onPress={onClose} />
+        </Animated.View>
         <Animated.View 
           style={{ transform: [{ translateX: slideAnim }] }}
           className="absolute left-0 top-0 bottom-0 w-80 max-w-[85%] bg-white"
         >
-          <Pressable onPress={(e) => e.stopPropagation()}>
+          <SafeAreaView className="flex-1">
             <View className="flex-row items-center justify-between px-4 py-4 border-b border-gray-200">
               <Text className="text-lg font-semibold text-gray-900">Filters</Text>
               <TouchableOpacity onPress={onClose} className="p-2">
                 <X size={20} color="#6b7280" />
               </TouchableOpacity>
             </View>
-            <ScrollView className="p-4" style={{ maxHeight: Dimensions.get("window").height - 200 }}>
+            <ScrollView className="flex-1 p-4">
               <TouchableOpacity onPress={() => setExpanded(!expanded)} className="flex-row items-center justify-between mb-4">
                 <Text className="text-sm tracking-wider text-gray-800">SUBJECT ({selectedCategories.length})</Text>
                 {expanded ? <Minus size={16} color="#374151" /> : <Plus size={16} color="#374151" />}
@@ -263,9 +288,9 @@ function FilterDrawer({
                 <Text className="text-white font-semibold">Apply Filters</Text>
               </TouchableOpacity>
             </View>
-          </Pressable>
+          </SafeAreaView>
         </Animated.View>
-      </Pressable>
+      </View>
     </Modal>
   );
 }
