@@ -64,6 +64,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUser: (userData: Partial<UserData>) => void;
+  refreshUser: () => Promise<void>;
 }
 
 interface AppContextType {
@@ -126,16 +127,45 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Load cached user on startup, then fetch fresh data
   useEffect(() => {
     (async () => {
       try {
         const t = await SecureStore.getItemAsync("token");
         const u = await SecureStore.getItemAsync("user");
-        if (t && u) { setToken(t); setUser(JSON.parse(u)); }
+        if (t && u) { 
+          setToken(t); 
+          setUser(JSON.parse(u));
+          // Fetch fresh profile data from server
+          fetchUserProfile(t);
+        }
       } catch (e) {}
       setIsLoading(false);
     })();
   }, []);
+
+  // Fetch fresh user profile from server
+  const fetchUserProfile = async (authToken?: string) => {
+    try {
+      const tokenToUse = authToken || token;
+      if (!tokenToUse) return;
+      
+      const res = await api.get("/user/profile", {
+        headers: { Authorization: `Bearer ${tokenToUse}` }
+      });
+      const freshUser: UserData = res.data;
+      setUser(freshUser);
+      // Store without profileImage to avoid SecureStore size limit
+      const { profileImage, ...userForStorage } = freshUser;
+      await SecureStore.setItemAsync("user", JSON.stringify(userForStorage));
+    } catch (e: any) {
+      console.error("Failed to fetch user profile", e);
+      // If token is invalid, sign out
+      if (e?.response?.status === 401 || e?.response?.status === 403) {
+        signOut();
+      }
+    }
+  };
 
   const signIn = async (email: string, password: string) => {
     const res = await api.post("/auth/login", { email, password });
@@ -172,8 +202,13 @@ function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Expose refreshUser to manually trigger a profile refresh
+  const refreshUser = async () => {
+    await fetchUserProfile();
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, signIn, signUp, signOut, updateUser }}>
+    <AuthContext.Provider value={{ user, token, isLoading, signIn, signUp, signOut, updateUser, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

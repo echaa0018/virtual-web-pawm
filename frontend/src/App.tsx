@@ -26,15 +26,34 @@ function App() {
   const [currentParams, setCurrentParams] = useState<any>(null);
   const [saveHandler, setSaveHandler] = useState<((name: string) => void) | null>(null);
 
-  // 1. Check for logged in user on load
+  // 1. Check for logged in user on load and fetch fresh profile data
   useEffect(() => {
     const token = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
     if (token && storedUser) {
+      // Set cached user first for immediate display
       setUser(JSON.parse(storedUser));
+      // Then fetch fresh data from server
+      fetchUserProfile();
     }
     fetchSimulations();
   }, []);
+
+  // Fetch fresh user profile from server
+  const fetchUserProfile = async () => {
+    try {
+      const res = await api.get('/user/profile');
+      const freshUser = res.data;
+      setUser(freshUser);
+      localStorage.setItem('user', JSON.stringify(freshUser));
+    } catch (err) {
+      console.error("Failed to fetch user profile", err);
+      // If token is invalid, log out
+      if ((err as any)?.response?.status === 401 || (err as any)?.response?.status === 403) {
+        handleLogout();
+      }
+    }
+  };
 
   // 2. Fetch Simulations from Backend
   const fetchSimulations = async () => {

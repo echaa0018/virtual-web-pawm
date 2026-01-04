@@ -83,6 +83,33 @@ app.get('/api/simulations', async (req, res) => {
 
 // --- PROTECTED ROUTES (Require Login) ---
 
+// Get User Profile
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
+  const userId = parseInt(req.user.userId);
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        profileImage: true,
+        createdAt: true
+      }
+    });
+    
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(500).json({ error: "Failed to get profile" });
+  }
+});
+
 // Update User Profile
 app.put('/api/user/profile', authenticateToken, async (req, res) => {
   const userId = parseInt(req.user.userId);
