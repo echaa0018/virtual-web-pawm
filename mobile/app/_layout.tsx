@@ -301,7 +301,7 @@ export default function RootLayout() {
           <StatusBar style="dark" />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#fff" }, animation: "slide_from_right" }}>
             <Stack.Screen name="index" />
-            <Stack.Screen name="simulation/[id]" options={{ headerShown: true, headerTitle: "Simulation", headerBackTitle: "Back", headerTintColor: "#0d9488" }} />
+            <Stack.Screen name="simulation/[id]" options={{ headerShown: false }} />
             <Stack.Screen name="auth/login" options={{ presentation: "modal", headerShown: true, headerTitle: "Log In", headerTintColor: "#0d9488" }} />
             <Stack.Screen name="auth/register" options={{ presentation: "modal", headerShown: true, headerTitle: "Sign Up", headerTintColor: "#0d9488" }} />
             <Stack.Screen name="profile" options={{ presentation: "modal", headerShown: true, headerTitle: "My Profile", headerTintColor: "#0d9488" }} />

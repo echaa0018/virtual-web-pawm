@@ -21,7 +21,6 @@ import {
   ArrowLeft,
   Play,
   Pause,
-  RotateCcw,
   Save,
   History,
   X,
@@ -160,17 +159,6 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
     onParamsChange?.(newParams);
   };
 
-  // Reset simulation
-  const handleReset = () => {
-    setIsRunning(false);
-    const resetParams = { ...defaultParams };
-    setParams(resetParams);
-    angleRef.current = resetParams.angle;
-    angularVelocityRef.current = resetParams.angularVelocity;
-    setTrail([]);
-    onParamsChange?.(resetParams);
-  };
-
   // Update current bob position
   const currentBobX = pivotX + scaledLength * Math.sin(angleRef.current);
   const currentBobY = pivotY + scaledLength * Math.cos(angleRef.current);
@@ -228,18 +216,14 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
 
       {/* Controls */}
       <View className="p-4">
-        {/* Play/Pause/Reset */}
-        <View className="flex-row justify-center gap-4 mb-6">
+        {/* Play/Pause */}
+        <View className="flex-row justify-center mb-6">
           <TouchableOpacity
             onPress={() => setIsRunning(!isRunning)}
-            className={`flex-row items-center gap-2 px-6 py-3 rounded-lg ${isRunning ? "bg-orange-500" : "bg-teal-600"}`}
+            className={`flex-row items-center gap-2 px-8 py-3 rounded-lg ${isRunning ? "bg-orange-500" : "bg-teal-600"}`}
           >
             {isRunning ? <Pause size={20} color="white" /> : <Play size={20} color="white" />}
             <Text className="text-white font-semibold">{isRunning ? "Pause" : "Start"}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleReset} className="flex-row items-center gap-2 px-4 py-3 bg-gray-200 rounded-lg">
-            <RotateCcw size={20} color="#374151" />
-            <Text className="text-gray-700 font-medium">Reset</Text>
           </TouchableOpacity>
         </View>
 
