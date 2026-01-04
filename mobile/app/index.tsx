@@ -88,9 +88,11 @@ function Header() {
       <View className="flex-row items-center justify-between">
         {/* Logo and Brand */}
         <TouchableOpacity className="flex-row items-center gap-3">
-          <View className="w-10 h-10 rounded-lg bg-teal-600 items-center justify-center">
-            <Microscope size={24} color="#ffffff" />
-          </View>
+          <Image 
+            source={require("../assets/HoushouIcon.jpg")} 
+            className="w-10 h-10 rounded-lg"
+            resizeMode="cover"
+          />
           <View>
             <Text className="text-xl font-bold text-gray-900">Houshou</Text>
             <Text className="text-xs text-teal-600 font-medium">Interactive Physics Simulations</Text>

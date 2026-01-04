@@ -11,10 +11,11 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Mail, Lock, Eye, EyeOff, Microscope } from "lucide-react-native";
+import { ArrowLeft, Mail, Lock, Eye, EyeOff } from "lucide-react-native";
 
 import { useAuth } from "./../_layout";
 
@@ -78,9 +79,11 @@ export default function LoginScreen() {
           <View className="flex-1 px-6 justify-center">
             {/* Logo */}
             <View className="items-center mb-8">
-              <View className="w-16 h-16 rounded-2xl bg-teal-600 items-center justify-center mb-4">
-                <Microscope size={36} color="#ffffff" />
-              </View>
+              <Image 
+                source={require("../../assets/HoushouIcon.jpg")} 
+                className="w-16 h-16 rounded-2xl mb-4"
+                resizeMode="cover"
+              />
               <Text className="text-2xl font-bold text-gray-900">Welcome Back</Text>
               <Text className="text-gray-500 mt-1">Sign in to continue to Virtual Lab</Text>
             </View>
