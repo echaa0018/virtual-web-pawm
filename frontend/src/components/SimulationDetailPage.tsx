@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { PendulumSimulator } from './PendulumSimulator';
-import { MathSimulator } from './MathSimulator';
-import { ChemistrySimulator } from './ChemistrySimulator';
+import { GraphPlotterSimulator } from './GraphPlotterSimulator';
+import { PHMeterSimulator } from './PHMeterSimulator';
 import { supabase, getSavedExperiments, saveExperiment } from '../lib/supabase';
 import { toast } from 'sonner';
 import { Save, X } from 'lucide-react';
@@ -145,14 +145,14 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
           );
       } else if (title.includes('graph') || title.includes('math') || title.includes('function')) {
           return (
-            <MathSimulator 
+            <GraphPlotterSimulator 
                 onParametersChange={(params) => setCurrentParams(params)} 
                 initialParams={loadedParams}
             />
           );
       } else if (title.includes('ph') || title.includes('chem') || title.includes('scale')) {
           return (
-            <ChemistrySimulator 
+            <PHMeterSimulator 
                 onParametersChange={(params) => setCurrentParams(params)} 
                 initialParams={loadedParams}
             />

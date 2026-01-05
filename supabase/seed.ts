@@ -33,7 +33,7 @@ const simulations = [
     image: '/function-grapher.jpeg',
     config: {
       hasSimulation: true,
-      component: 'MathSimulator'
+      component: 'GraphPlotterSimulator'
     }
   },
   {
@@ -43,7 +43,7 @@ const simulations = [
     image: '/ph-scale-simulator.png',
     config: {
       hasSimulation: true,
-      component: 'ChemistrySimulator'
+      component: 'PHMeterSimulator'
     }
   },
   {
