@@ -24,7 +24,7 @@ interface SavedExperimentState {
 export function SimulationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useOutletContext<AppOutletContext>();
+  const { user, simulations } = useOutletContext<AppOutletContext>();
   
   // Simulation data state
   const [simulation, setSimulation] = useState<Simulation | null>(null);
@@ -40,34 +40,54 @@ export function SimulationDetailPage() {
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // Loading state for history
 
   // Fetch simulation data when component mounts or ID changes
+  // Uses stale-while-revalidate: show cached data immediately, verify in background
   useEffect(() => {
+    if (!id) {
+      setError('No simulation ID provided');
+      setIsLoading(false);
+      return;
+    }
+
+    const numericId = parseInt(id);
+    
+    // First, check if we have the simulation in context (instant display)
+    const cachedSimulation = simulations.find(sim => sim.id === numericId);
+    if (cachedSimulation) {
+      setSimulation(cachedSimulation);
+      setIsLoading(false);
+      setError(null);
+    }
+
+    // Background verification/fetch (stale-while-revalidate)
     const fetchSimulation = async () => {
-      if (!id) {
-        setError('No simulation ID provided');
-        setIsLoading(false);
-        return;
+      // Only show loading if we don't have cached data
+      if (!cachedSimulation) {
+        setIsLoading(true);
+        setError(null);
       }
 
-      setIsLoading(true);
-      setError(null);
-
       try {
-        const data = await getSimulationById(parseInt(id));
+        const data = await getSimulationById(numericId);
         if (data) {
           setSimulation(data);
-        } else {
+          setError(null);
+        } else if (!cachedSimulation) {
+          // Only set error if we don't have cached data
           setError('Simulation not found');
         }
       } catch (err: any) {
         console.error('Failed to fetch simulation:', err);
-        setError('Failed to load simulation');
+        // Only set error if we don't have cached data
+        if (!cachedSimulation) {
+          setError('Failed to load simulation');
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchSimulation();
-  }, [id]);
+  }, [id, simulations]);
 
   // Function to fetch saved experiments from Supabase
   const fetchHistory = async () => {

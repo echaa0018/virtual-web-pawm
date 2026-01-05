@@ -77,6 +77,26 @@ function App() {
     }
   };
 
+  // 3. Preload images for instant navigation (banner, simulation thumbnails)
+  useEffect(() => {
+    // Preload static homepage images (banner, etc.)
+    const staticImages = ['/banner.png'];
+    staticImages.forEach(src => {
+      const img = new Image();
+      img.src = src;
+    });
+
+    // Preload simulation card images
+    if (simulations.length > 0) {
+      simulations.forEach(sim => {
+        if (sim.image) {
+          const img = new Image();
+          img.src = sim.image;
+        }
+      });
+    }
+  }, [simulations]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
