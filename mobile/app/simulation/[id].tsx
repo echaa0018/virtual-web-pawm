@@ -63,6 +63,12 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
   const [showTrail, setShowTrail] = useState(true);
   const [trail, setTrail] = useState<{ x: number; y: number }[]>([]);
 
+  // Local input states (only commit on blur/submit)
+  const [lengthInput, setLengthInput] = useState(String(Math.round(params.length)));
+  const [massInput, setMassInput] = useState(String(params.mass.toFixed(1)));
+  const [gravityInput, setGravityInput] = useState(String(params.gravity.toFixed(1)));
+  const [angleInput, setAngleInput] = useState(String(Math.round((params.angle * 180) / Math.PI)));
+
   // Animation state
   const angleRef = useRef(params.angle);
   const angularVelocityRef = useRef(params.angularVelocity);
@@ -77,6 +83,11 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
         setParams(mergedParams);
         angleRef.current = mergedParams.angle;
         angularVelocityRef.current = mergedParams.angularVelocity;
+        // Sync input states
+        setLengthInput(String(Math.round(mergedParams.length)));
+        setMassInput(String(mergedParams.mass.toFixed(1)));
+        setGravityInput(String(mergedParams.gravity.toFixed(1)));
+        setAngleInput(String(Math.round((mergedParams.angle * 180) / Math.PI)));
       }
     }
   }, [externalParams]);
@@ -93,30 +104,28 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
   // Physics simulation (same as frontend)
   const updatePhysics = useCallback(
     (deltaTime: number) => {
-      const dt = Math.min(deltaTime, 0.033); // Cap dt to prevent instability
+      // Use fixed timestep for stability
+      const fixedDt = 0.016;
+      const steps = Math.min(Math.floor(deltaTime / fixedDt) + 1, 4);
+      
       const g = params.gravity;
       const L = params.length / 100; // Convert to meters
-      const damping = params.damping;
 
-      // Angular acceleration: α = -(g/L) * sin(θ)
-      const angularAcceleration = (-g / L) * Math.sin(angleRef.current);
+      for (let i = 0; i < steps; i++) {
+        // Angular acceleration: α = -(g/L) * sin(θ)
+        const angularAcceleration = (-g / L) * Math.sin(angleRef.current);
 
-      // Update angular velocity and apply damping
-      angularVelocityRef.current += angularAcceleration * dt;
-      angularVelocityRef.current *= damping;
+        // Update angular velocity
+        angularVelocityRef.current += angularAcceleration * fixedDt;
+        
+        // Apply very light damping per step
+        angularVelocityRef.current *= 0.9995;
 
-      // Update angle
-      angleRef.current += angularVelocityRef.current * dt;
-
-      // Update trail
-      const newX = pivotX + scaledLength * Math.sin(angleRef.current);
-      const newY = pivotY + scaledLength * Math.cos(angleRef.current);
-      setTrail((prev) => {
-        const newTrail = [...prev, { x: newX, y: newY }];
-        return newTrail.slice(-100); // Keep last 100 points
-      });
+        // Update angle
+        angleRef.current += angularVelocityRef.current * fixedDt;
+      }
     },
-    [params.gravity, params.length, params.damping, pivotX, pivotY, scaledLength]
+    [params.gravity, params.length]
   );
 
   // Animation loop
@@ -136,8 +145,13 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
 
       updatePhysics(deltaTime);
 
-      // Force re-render by updating state
-      setParams((prev) => ({ ...prev }));
+      // Update trail
+      const newX = pivotX + scaledLength * Math.sin(angleRef.current);
+      const newY = pivotY + scaledLength * Math.cos(angleRef.current);
+      setTrail((prev) => {
+        const newTrail = [...prev, { x: newX, y: newY }];
+        return newTrail.slice(-50); // Keep last 50 points (reduced for performance)
+      });
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -149,7 +163,7 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isRunning, updatePhysics]);
+  }, [isRunning, updatePhysics, pivotX, pivotY, scaledLength]);
 
   // Handle parameter changes
   const handleParamChange = (key: keyof PendulumParams, value: number) => {
@@ -232,98 +246,102 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
           </TouchableOpacity>
         </View>
 
-        {/* Parameter Sliders */}
+        {/* Parameter Inputs */}
         <View className="space-y-4">
           {/* Length */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Length (cm)</Text>
-              <Text className="text-teal-600 font-semibold">{(params.length ?? 200).toFixed(0)}</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.length - 50) / 250) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("length", Math.max(50, params.length - 10))}>
-                <Text className="text-teal-600 font-bold text-lg">−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("length", Math.min(300, params.length + 10))}>
-                <Text className="text-teal-600 font-bold text-lg">+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Length (cm)</Text>
+            <TextInput
+              value={lengthInput}
+              onChangeText={setLengthInput}
+              onEndEditing={() => {
+                const val = parseInt(lengthInput) || 200;
+                handleParamChange("length", Math.max(50, Math.min(300, val)));
+                setLengthInput(String(Math.max(50, Math.min(300, val))));
+              }}
+              onSubmitEditing={() => {
+                const val = parseInt(lengthInput) || 200;
+                handleParamChange("length", Math.max(50, Math.min(300, val)));
+                setLengthInput(String(Math.max(50, Math.min(300, val))));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 50 - 300 cm</Text>
           </View>
 
           {/* Mass */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Mass (kg)</Text>
-              <Text className="text-teal-600 font-semibold">{(params.mass ?? 20).toFixed(1)}</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.mass - 5) / 45) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("mass", Math.max(5, params.mass - 5))}>
-                <Text className="text-teal-600 font-bold text-lg">−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("mass", Math.min(50, params.mass + 5))}>
-                <Text className="text-teal-600 font-bold text-lg">+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Mass (kg)</Text>
+            <TextInput
+              value={massInput}
+              onChangeText={setMassInput}
+              onEndEditing={() => {
+                const val = parseFloat(massInput) || 20;
+                handleParamChange("mass", Math.max(5, Math.min(50, val)));
+                setMassInput(String(Math.max(5, Math.min(50, val)).toFixed(1)));
+              }}
+              onSubmitEditing={() => {
+                const val = parseFloat(massInput) || 20;
+                handleParamChange("mass", Math.max(5, Math.min(50, val)));
+                setMassInput(String(Math.max(5, Math.min(50, val)).toFixed(1)));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 5 - 50 kg</Text>
           </View>
 
           {/* Gravity */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Gravity (m/s²)</Text>
-              <Text className="text-teal-600 font-semibold">{(params.gravity ?? 9.8).toFixed(1)}</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${(((params.gravity ?? 9.8) - 1) / 19) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.max(1, (params.gravity ?? 9.8) - 1))}>
-                <Text className="text-teal-600 font-bold text-lg">−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.min(20, (params.gravity ?? 9.8) + 1))}>
-                <Text className="text-teal-600 font-bold text-lg">+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Gravity (m/s²)</Text>
+            <TextInput
+              value={gravityInput}
+              onChangeText={setGravityInput}
+              onEndEditing={() => {
+                const val = parseFloat(gravityInput) || 9.8;
+                handleParamChange("gravity", Math.max(1, Math.min(25, val)));
+                setGravityInput(String(Math.max(1, Math.min(25, val)).toFixed(1)));
+              }}
+              onSubmitEditing={() => {
+                const val = parseFloat(gravityInput) || 9.8;
+                handleParamChange("gravity", Math.max(1, Math.min(25, val)));
+                setGravityInput(String(Math.max(1, Math.min(25, val)).toFixed(1)));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Moon: 1.6 | Earth: 9.8 | Jupiter: 24.8</Text>
           </View>
 
           {/* Initial Angle */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Initial Angle (°)</Text>
-              <Text className="text-teal-600 font-semibold">{(((params.angle ?? Math.PI/4) * 180) / Math.PI).toFixed(0)}</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.angle + Math.PI / 2) / Math.PI) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity
-                onPress={() => handleParamChange("angle", Math.max(-Math.PI / 2, params.angle - Math.PI / 18))}
-              >
-                <Text className="text-teal-600 font-bold text-lg">−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => handleParamChange("angle", Math.min(Math.PI / 2, params.angle + Math.PI / 18))}
-              >
-                <Text className="text-teal-600 font-bold text-lg">+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Initial Angle (°)</Text>
+            <TextInput
+              value={angleInput}
+              onChangeText={setAngleInput}
+              onEndEditing={() => {
+                const degrees = parseInt(angleInput) || 45;
+                const clampedDegrees = Math.max(-90, Math.min(90, degrees));
+                const radians = (clampedDegrees * Math.PI) / 180;
+                handleParamChange("angle", radians);
+                setAngleInput(String(clampedDegrees));
+              }}
+              onSubmitEditing={() => {
+                const degrees = parseInt(angleInput) || 45;
+                const clampedDegrees = Math.max(-90, Math.min(90, degrees));
+                const radians = (clampedDegrees * Math.PI) / 180;
+                handleParamChange("angle", radians);
+                setAngleInput(String(clampedDegrees));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: -90° to 90°</Text>
           </View>
         </View>
 
@@ -481,15 +499,23 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
   const defaultParams: PHMeterParams = { ph: 7 };
   // Merge external params with defaults
   const [params, setParams] = useState<PHMeterParams>({ ...defaultParams, ...externalParams });
+  // Local input state for pH
+  const [phInput, setPhInput] = useState(String((params.ph ?? 7).toFixed(1)));
 
   useEffect(() => {
     if (externalParams) {
       const mergedParams = { ...defaultParams, ...externalParams };
       if (mergedParams.ph !== params.ph) {
         setParams(mergedParams);
+        setPhInput(String(mergedParams.ph.toFixed(1)));
       }
     }
   }, [externalParams]);
+
+  // Sync input when params change from presets/color scale
+  useEffect(() => {
+    setPhInput(String(params.ph.toFixed(1)));
+  }, [params.ph]);
 
   const handlePhChange = (ph: number) => {
     const newParams = { ph: Math.max(0, Math.min(14, ph)) };
@@ -579,44 +605,70 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
       <View className="p-4">
         <Text className="text-sm font-medium text-gray-700 mb-3">pH Level Adjuster</Text>
 
-        {/* pH Slider Visual */}
+        {/* pH Input Field */}
         <View className="mb-4">
-          <View className="h-3 rounded-full overflow-hidden mb-2" style={{
-            backgroundColor: getLiquidColor(params.ph),
-          }}>
-            <View
-              style={{
-                width: `${(params.ph / 14) * 100}%`,
-                height: '100%',
-                backgroundColor: 'rgba(255,255,255,0.3)',
-              }}
-            />
+          <TextInput
+            value={phInput}
+            onChangeText={setPhInput}
+            onEndEditing={() => {
+              const val = parseFloat(phInput);
+              if (!isNaN(val)) {
+                handlePhChange(Math.max(0, Math.min(14, val)));
+              } else {
+                setPhInput(String(params.ph.toFixed(1)));
+              }
+            }}
+            onSubmitEditing={() => {
+              const val = parseFloat(phInput);
+              if (!isNaN(val)) {
+                handlePhChange(Math.max(0, Math.min(14, val)));
+              } else {
+                setPhInput(String(params.ph.toFixed(1)));
+              }
+            }}
+            keyboardType="numeric"
+            className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white text-center text-xl font-bold"
+          />
+        </View>
+
+        {/* pH Color Scale */}
+        <View className="mb-4">
+          <View 
+            className="h-8 rounded-lg overflow-hidden mb-2" 
+            style={{
+              flexDirection: 'row',
+            }}
+          >
+            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14].map((ph) => (
+              <TouchableOpacity
+                key={ph}
+                style={{
+                  flex: 1,
+                  backgroundColor: getLiquidColor(ph),
+                  borderWidth: Math.abs((params.ph ?? 7) - ph) < 0.5 ? 2 : 0,
+                  borderColor: '#000',
+                }}
+                onPress={() => handlePhChange(ph)}
+              />
+            ))}
           </View>
           <View className="flex-row justify-between">
             <Text className="text-xs text-gray-500">0 (Acidic)</Text>
+            <Text className="text-xs text-gray-500">7 (Neutral)</Text>
             <Text className="text-xs text-gray-500">14 (Basic)</Text>
           </View>
         </View>
 
-        {/* Fine Controls */}
-        <View className="flex-row justify-center gap-3 mb-4">
-          <TouchableOpacity
-            onPress={() => handlePhChange(params.ph - 0.1)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg"
-          >
-            <Text className="text-gray-700 font-medium">- 0.1</Text>
+        {/* Quick Presets */}
+        <View className="flex-row justify-center gap-2 mb-4 flex-wrap">
+          <TouchableOpacity onPress={() => handlePhChange(1)} className="px-3 py-1.5 bg-red-100 rounded-lg">
+            <Text className="text-red-700 text-xs font-medium">Acidic (1)</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handlePhChange(7)}
-            className="px-4 py-2 bg-teal-600 rounded-lg"
-          >
-            <Text className="text-white font-medium">Reset</Text>
+          <TouchableOpacity onPress={() => handlePhChange(7)} className="px-3 py-1.5 bg-green-100 rounded-lg">
+            <Text className="text-green-700 text-xs font-medium">Neutral (7)</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => handlePhChange(params.ph + 0.1)}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg"
-          >
-            <Text className="text-gray-700 font-medium">+ 0.1</Text>
+          <TouchableOpacity onPress={() => handlePhChange(13)} className="px-3 py-1.5 bg-purple-100 rounded-lg">
+            <Text className="text-purple-700 text-xs font-medium">Basic (13)</Text>
           </TouchableOpacity>
         </View>
 
@@ -668,10 +720,17 @@ function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: P
   const animationRef = useRef<number | null>(null);
   const timeRef = useRef<number>(0);
 
+  // Local input states (only commit on blur/submit)
+  const [angleInput, setAngleInput] = useState(String(Math.round(params.angle)));
+  const [velocityInput, setVelocityInput] = useState(String(Math.round(params.velocity)));
+  const [gravityInput, setGravityInput] = useState(String(params.gravity.toFixed(1)));
+  const [airResistanceInput, setAirResistanceInput] = useState(String(Math.round(params.airResistance)));
+  const [heightInput, setHeightInput] = useState(String(Math.round(params.height)));
+
   // Canvas dimensions for mobile
   const CANVAS_WIDTH = CANVAS_SIZE;
   const CANVAS_HEIGHT = CANVAS_SIZE * 0.75;
-  const SCALE = 2; // pixels per meter
+  const SCALE = 3; // pixels per meter (increased for better visibility)
   const GROUND_Y = CANVAS_HEIGHT - 30;
 
   useEffect(() => {
@@ -680,6 +739,12 @@ function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: P
       if (JSON.stringify(mergedParams) !== JSON.stringify(params)) {
         setParams(mergedParams);
         reset();
+        // Sync input states
+        setAngleInput(String(Math.round(mergedParams.angle)));
+        setVelocityInput(String(Math.round(mergedParams.velocity)));
+        setGravityInput(String(mergedParams.gravity.toFixed(1)));
+        setAirResistanceInput(String(Math.round(mergedParams.airResistance)));
+        setHeightInput(String(Math.round(mergedParams.height)));
       }
     }
   }, [externalParams]);
@@ -728,30 +793,62 @@ function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: P
     let lastTime = performance.now();
 
     const animate = (currentTime: number) => {
-      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.033);
+      const realDeltaTime = (currentTime - lastTime) / 1000;
       lastTime = currentTime;
-      timeRef.current += deltaTime;
+      
+      // Use fixed physics timestep
+      const fixedDt = 0.016;
+      const steps = Math.min(Math.floor(realDeltaTime / fixedDt) + 1, 4);
+      
+      for (let i = 0; i < steps; i++) {
+        timeRef.current += fixedDt;
+      }
 
       setProjectile((prev) => {
         if (!prev || prev.landed) return prev;
+        
+        let currentX = prev.x;
+        let currentY = prev.y;
+        let currentVx = prev.vx;
+        let currentVy = prev.vy;
+        let currentMaxHeight = prev.maxHeight;
+        let newTrail = [...prev.trail];
+        
+        for (let step = 0; step < steps; step++) {
+          let ax = 0;
+          let ay = params.gravity * SCALE;
 
-        let ax = 0;
-        let ay = params.gravity * SCALE;
+          // Air resistance
+          if (params.airResistance > 0) {
+            const speed = Math.sqrt(currentVx * currentVx + currentVy * currentVy);
+            if (speed > 0) {
+              const dragFactor = params.airResistance * 0.001;
+              ax -= dragFactor * currentVx * speed;
+              ay -= dragFactor * currentVy * speed;
+            }
+          }
 
-        // Air resistance
-        if (params.airResistance > 0) {
-          const speed = Math.sqrt(prev.vx * prev.vx + prev.vy * prev.vy);
-          if (speed > 0) {
-            const dragFactor = params.airResistance * 0.01;
-            ax -= dragFactor * prev.vx * speed / SCALE;
-            ay -= dragFactor * prev.vy * speed / SCALE;
+          currentVx += ax * fixedDt;
+          currentVy += ay * fixedDt;
+          currentX += currentVx * fixedDt;
+          currentY += currentVy * fixedDt;
+          
+          // Update height tracking
+          const stepHeight = (GROUND_Y - currentY) / SCALE + params.height;
+          if (stepHeight > currentMaxHeight) {
+            currentMaxHeight = stepHeight;
+          }
+          
+          // Trail every 2 steps
+          if (step % 2 === 0) {
+            newTrail = [...newTrail.slice(-100), { x: currentX, y: currentY }];
           }
         }
-
-        const newVx = prev.vx + ax * deltaTime;
-        const newVy = prev.vy + ay * deltaTime;
-        const newX = prev.x + newVx * deltaTime;
-        const newY = prev.y + newVy * deltaTime;
+        
+        const newX = currentX;
+        const newY = currentY;
+        const newVx = currentVx;
+        const newVy = currentVy;
 
         const currentHeight = (GROUND_Y - newY) / SCALE + params.height;
 
@@ -787,8 +884,8 @@ function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: P
           y: newY,
           vx: newVx,
           vy: newVy,
-          maxHeight: Math.max(prev.maxHeight, currentHeight),
-          trail: [...prev.trail.slice(-100), { x: newX, y: newY }],
+          maxHeight: currentMaxHeight,
+          trail: newTrail,
           flightTime: timeRef.current,
         };
       });
@@ -950,112 +1047,127 @@ function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: P
         <View className="space-y-4">
           {/* Angle */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Launch Angle</Text>
-              <Text className="text-teal-600 font-semibold">{params.angle}°</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.angle - 5) / 80) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("angle", Math.max(5, params.angle - 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("angle", Math.min(85, params.angle + 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Launch Angle (°)</Text>
+            <TextInput
+              value={angleInput}
+              onChangeText={setAngleInput}
+              onEndEditing={() => {
+                const val = parseInt(angleInput) || 45;
+                const clamped = Math.max(5, Math.min(85, val));
+                handleParamChange("angle", clamped);
+                setAngleInput(String(clamped));
+              }}
+              onSubmitEditing={() => {
+                const val = parseInt(angleInput) || 45;
+                const clamped = Math.max(5, Math.min(85, val));
+                handleParamChange("angle", clamped);
+                setAngleInput(String(clamped));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 5° - 85° (Optimal: 45°)</Text>
           </View>
 
           {/* Velocity */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Initial Velocity</Text>
-              <Text className="text-teal-600 font-semibold">{params.velocity} m/s</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.velocity - 10) / 90) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("velocity", Math.max(10, params.velocity - 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("velocity", Math.min(100, params.velocity + 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Initial Velocity (m/s)</Text>
+            <TextInput
+              value={velocityInput}
+              onChangeText={setVelocityInput}
+              onEndEditing={() => {
+                const val = parseInt(velocityInput) || 50;
+                const clamped = Math.max(10, Math.min(100, val));
+                handleParamChange("velocity", clamped);
+                setVelocityInput(String(clamped));
+              }}
+              onSubmitEditing={() => {
+                const val = parseInt(velocityInput) || 50;
+                const clamped = Math.max(10, Math.min(100, val));
+                handleParamChange("velocity", clamped);
+                setVelocityInput(String(clamped));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 10 - 100 m/s</Text>
           </View>
 
           {/* Gravity */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Gravity</Text>
-              <Text className="text-teal-600 font-semibold">{(params.gravity ?? 9.8).toFixed(1)} m/s²</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.gravity - 1) / 24) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.max(1, params.gravity - 1))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.min(25, params.gravity + 1))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Gravity (m/s²)</Text>
+            <TextInput
+              value={gravityInput}
+              onChangeText={setGravityInput}
+              onEndEditing={() => {
+                const val = parseFloat(gravityInput) || 9.8;
+                const clamped = Math.max(1, Math.min(25, val));
+                handleParamChange("gravity", clamped);
+                setGravityInput(String(clamped.toFixed(1)));
+              }}
+              onSubmitEditing={() => {
+                const val = parseFloat(gravityInput) || 9.8;
+                const clamped = Math.max(1, Math.min(25, val));
+                handleParamChange("gravity", clamped);
+                setGravityInput(String(clamped.toFixed(1)));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Moon: 1.6 | Earth: 9.8 | Jupiter: 24.8</Text>
           </View>
 
           {/* Air Resistance */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Air Resistance</Text>
-              <Text className="text-teal-600 font-semibold">{params.airResistance === 0 ? 'None' : `${params.airResistance}%`}</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${(params.airResistance / 50) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("airResistance", Math.max(0, params.airResistance - 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("airResistance", Math.min(50, params.airResistance + 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Air Resistance (%)</Text>
+            <TextInput
+              value={airResistanceInput}
+              onChangeText={setAirResistanceInput}
+              onEndEditing={() => {
+                const val = parseInt(airResistanceInput) || 0;
+                const clamped = Math.max(0, Math.min(50, val));
+                handleParamChange("airResistance", clamped);
+                setAirResistanceInput(String(clamped));
+              }}
+              onSubmitEditing={() => {
+                const val = parseInt(airResistanceInput) || 0;
+                const clamped = Math.max(0, Math.min(50, val));
+                handleParamChange("airResistance", clamped);
+                setAirResistanceInput(String(clamped));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 0% (vacuum) - 50% (heavy)</Text>
           </View>
 
           {/* Initial Height */}
           <View>
-            <View className="flex-row justify-between mb-1">
-              <Text className="text-gray-700 font-medium">Initial Height</Text>
-              <Text className="text-teal-600 font-semibold">{params.height} m</Text>
-            </View>
-            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
-              <View
-                className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${(params.height / 30) * 100}%` }}
-              />
-            </View>
-            <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("height", Math.max(0, params.height - 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("height", Math.min(30, params.height + 5))} disabled={isRunning}>
-                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
-              </TouchableOpacity>
-            </View>
+            <Text className="text-gray-700 font-medium mb-2">Initial Height (m)</Text>
+            <TextInput
+              value={heightInput}
+              onChangeText={setHeightInput}
+              onEndEditing={() => {
+                const val = parseInt(heightInput) || 0;
+                const clamped = Math.max(0, Math.min(30, val));
+                handleParamChange("height", clamped);
+                setHeightInput(String(clamped));
+              }}
+              onSubmitEditing={() => {
+                const val = parseInt(heightInput) || 0;
+                const clamped = Math.max(0, Math.min(30, val));
+                handleParamChange("height", clamped);
+                setHeightInput(String(clamped));
+              }}
+              keyboardType="numeric"
+              className="border border-gray-300 rounded-lg px-4 py-3 text-gray-900 bg-white"
+              editable={!isRunning}
+            />
+            <Text className="text-xs text-gray-500 mt-1">Range: 0 - 30 m</Text>
           </View>
         </View>
 

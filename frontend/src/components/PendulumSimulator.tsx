@@ -16,10 +16,26 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
   const [length, setLength] = useState(200); // pixels
   const [mass, setMass] = useState(20); // kg
   const [gravity, setGravity] = useState(9.8); // m/s²
-  const [angle, setAngle] = useState(Math.PI / 4); // radians
-  const [angularVelocity, setAngularVelocity] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
+
+  // Use refs for physics state to avoid re-render loops
+  const angleRef = useRef(Math.PI / 4);
+  const angularVelocityRef = useRef(0);
+  const [angleDisplay, setAngleDisplay] = useState(45); // For slider display only
+
+  // Local input states for controlled inputs (only commit on blur/enter)
+  const [lengthInput, setLengthInput] = useState(String(length));
+  const [massInput, setMassInput] = useState(String(mass));
+  const [gravityInput, setGravityInput] = useState(String(gravity));
+  const [angleInput, setAngleInput] = useState(String(45));
+
+  // Helper to update angle (ref + display)
+  const setAngle = (radians: number) => {
+    angleRef.current = radians;
+    setAngleDisplay(Math.round(radians * 180 / Math.PI));
+    setAngleInput(String(Math.round(radians * 180 / Math.PI)));
+  };
 
   // Load initial params when provided (from saved experiment)
   useEffect(() => {
@@ -27,16 +43,28 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
       setLength(initialParams.length || 200);
       setMass(initialParams.mass || 20);
       setGravity(initialParams.gravity || 9.8);
-      setAngle(Math.PI / 4); // Reset angle
-      setAngularVelocity(0); // Reset velocity
+      angleRef.current = Math.PI / 4; // Reset angle
+      angularVelocityRef.current = 0; // Reset velocity
+      setAngleDisplay(45);
       setIsRunning(false); // Stop simulation
+      // Sync input states
+      setLengthInput(String(initialParams.length || 200));
+      setMassInput(String(initialParams.mass || 20));
+      setGravityInput(String(initialParams.gravity || 9.8));
+      setAngleInput(String(45));
     }
   }, [initialParams]);
+
+  // Sync input states when actual values change (e.g., from slider)
+  useEffect(() => { setLengthInput(String(length)); }, [length]);
+  useEffect(() => { setMassInput(String(mass)); }, [mass]);
+  useEffect(() => { setGravityInput(String(gravity)); }, [gravity]);
 
   useEffect(() => {
     onParametersChange?.({ length, mass, gravity });
   }, [length, mass, gravity]);
 
+  // Drawing effect - separate from physics
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -48,6 +76,9 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
     const centerY = 80;
 
     const draw = () => {
+      const angle = angleRef.current;
+      const angularVelocity = angularVelocityRef.current;
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -102,7 +133,6 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         ctx.lineWidth = 1;
         ctx.beginPath();
         
-        // REDUCED TRAIL LENGTH to fix lag (was 20)
         const trailLength = 5; 
         
         for (let i = 0; i < trailLength; i++) {
@@ -128,20 +158,40 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
       ctx.fillText(`Period: ${period.toFixed(2)}s`, canvas.width - 150, 30);
     };
 
+    // Initial draw
     draw();
 
+    // Animation loop (only runs when isRunning is true)
     if (isRunning) {
-      const animate = () => {
-        // Pendulum physics simulation
-        const angularAcceleration = -(gravity / (length / 100)) * Math.sin(angle);
+      let lastTime = performance.now();
+
+      const animate = (currentTime: number) => {
+        const realDeltaTime = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
         
-        setAngularVelocity(v => {
-          const newVelocity = v + angularAcceleration * 0.016;
-          return newVelocity * 0.999; // Damping
-        });
+        // Use fixed physics timestep with accumulator for stability
+        const fixedDt = 0.016; // 60Hz physics
+        const steps = Math.min(Math.floor(realDeltaTime / fixedDt) + 1, 4); // Max 4 steps per frame
         
-        setAngle(a => a + angularVelocity * 0.016);
-        
+        for (let i = 0; i < steps; i++) {
+          // Pendulum physics using refs (no state updates in the loop)
+          const g = gravity;
+          const L = length / 100; // Convert pixels to meters (length in cm)
+          
+          // Calculate angular acceleration: α = -(g/L) * sin(θ)
+          const angularAcceleration = -(g / L) * Math.sin(angleRef.current);
+          
+          // Update angular velocity: ω = ω + α * dt
+          angularVelocityRef.current += angularAcceleration * fixedDt;
+          
+          // Apply very light damping (per step, not per frame)
+          angularVelocityRef.current *= 0.9995;
+          
+          // Update angle: θ = θ + ω * dt
+          angleRef.current += angularVelocityRef.current * fixedDt;
+        }
+
+        draw();
         animationFrameRef.current = requestAnimationFrame(animate);
       };
       
@@ -153,7 +203,7 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [angle, angularVelocity, length, mass, gravity, isRunning]);
+  }, [length, mass, gravity, isRunning]);
 
   return (
     <div className="space-y-6">
@@ -173,17 +223,30 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              String Length: {length} cm
+              String Length (cm)
             </label>
-            <input
-              type="range"
-              min="100"
-              max="300"
-              value={length}
-              onChange={(e) => setLength(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="100"
+                max="300"
+                value={length}
+                onChange={(e) => setLength(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="100"
+                max="300"
+                value={lengthInput}
+                onChange={(e) => setLengthInput(e.target.value)}
+                onBlur={() => setLength(Math.max(100, Math.min(300, Number(lengthInput) || 200)))}
+                onKeyDown={(e) => e.key === 'Enter' && setLength(Math.max(100, Math.min(300, Number(lengthInput) || 200)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>100 cm</span>
               <span>300 cm</span>
@@ -192,17 +255,30 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Mass: {mass} kg
+              Mass (kg)
             </label>
-            <input
-              type="range"
-              min="5"
-              max="50"
-              value={mass}
-              onChange={(e) => setMass(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="5"
+                max="50"
+                value={mass}
+                onChange={(e) => setMass(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="5"
+                max="50"
+                value={massInput}
+                onChange={(e) => setMassInput(e.target.value)}
+                onBlur={() => setMass(Math.max(5, Math.min(50, Number(massInput) || 20)))}
+                onKeyDown={(e) => e.key === 'Enter' && setMass(Math.max(5, Math.min(50, Number(massInput) || 20)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>5 kg</span>
               <span>50 kg</span>
@@ -214,18 +290,32 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Gravity: {gravity} m/s²
+              Gravity (m/s²)
             </label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              step="0.1"
-              value={gravity}
-              onChange={(e) => setGravity(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="1"
+                max="20"
+                step="0.1"
+                value={gravity}
+                onChange={(e) => setGravity(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="1"
+                max="20"
+                step="0.1"
+                value={gravityInput}
+                onChange={(e) => setGravityInput(e.target.value)}
+                onBlur={() => setGravity(Math.max(1, Math.min(20, Number(gravityInput) || 9.8)))}
+                onKeyDown={(e) => e.key === 'Enter' && setGravity(Math.max(1, Math.min(20, Number(gravityInput) || 9.8)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>Moon (1.6)</span>
               <span>Earth (9.8)</span>
@@ -235,17 +325,30 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Initial Angle: {(angle * 180 / Math.PI).toFixed(0)}°
+              Initial Angle (°)
             </label>
-            <input
-              type="range"
-              min="-90"
-              max="90"
-              value={angle * 180 / Math.PI}
-              onChange={(e) => setAngle(Number(e.target.value) * Math.PI / 180)}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="-90"
+                max="90"
+                value={angleDisplay}
+                onChange={(e) => setAngle(Number(e.target.value) * Math.PI / 180)}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="-90"
+                max="90"
+                value={angleInput}
+                onChange={(e) => setAngleInput(e.target.value)}
+                onBlur={() => setAngle(Math.max(-90, Math.min(90, Number(angleInput) || 45)) * Math.PI / 180)}
+                onKeyDown={(e) => e.key === 'Enter' && setAngle(Math.max(-90, Math.min(90, Number(angleInput) || 45)) * Math.PI / 180)}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>-90°</span>
               <span>0°</span>

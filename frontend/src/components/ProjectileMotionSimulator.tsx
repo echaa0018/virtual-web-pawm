@@ -36,6 +36,13 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
   const animationFrameRef = useRef<number | undefined>(undefined);
   const timeRef = useRef<number>(0);
 
+  // Local input states for controlled inputs (only commit on blur/enter)
+  const [angleInput, setAngleInput] = useState(String(angle));
+  const [velocityInput, setVelocityInput] = useState(String(velocity));
+  const [gravityInput, setGravityInput] = useState(String(gravity));
+  const [airResistanceInput, setAirResistanceInput] = useState(String(airResistance));
+  const [heightInput, setHeightInput] = useState(String(height));
+
   // Scale factor: pixels per meter
   const SCALE = 5;
   const GROUND_Y = 420;
@@ -50,8 +57,21 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
       setHeight(initialParams.height || 0);
       setIsRunning(false);
       setProjectile(null);
+      // Sync input states
+      setAngleInput(String(initialParams.angle || 45));
+      setVelocityInput(String(initialParams.velocity || 50));
+      setGravityInput(String(initialParams.gravity || 9.8));
+      setAirResistanceInput(String(initialParams.airResistance || 0));
+      setHeightInput(String(initialParams.height || 0));
     }
   }, [initialParams]);
+
+  // Sync input states when actual values change (e.g., from slider)
+  useEffect(() => { setAngleInput(String(angle)); }, [angle]);
+  useEffect(() => { setVelocityInput(String(velocity)); }, [velocity]);
+  useEffect(() => { setGravityInput(String(gravity)); }, [gravity]);
+  useEffect(() => { setAirResistanceInput(String(airResistance)); }, [airResistance]);
+  useEffect(() => { setHeightInput(String(height)); }, [height]);
 
   // Notify parent of parameter changes
   useEffect(() => {
@@ -299,31 +319,61 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
 
     // Animation loop
     if (isRunning && projectile && !projectile.landed) {
-      const animate = () => {
-        const dt = 0.016; // 60fps timestep
-        timeRef.current += dt;
+      let lastTime = performance.now();
+      
+      const animate = (currentTime: number) => {
+        const realDeltaTime = (currentTime - lastTime) / 1000;
+        lastTime = currentTime;
+        
+        // Use multiple physics steps for smooth simulation
+        const fixedDt = 0.016;
+        const steps = Math.min(Math.floor(realDeltaTime / fixedDt) + 1, 4);
+        
+        for (let step = 0; step < steps; step++) {
+          timeRef.current += fixedDt;
+        }
 
         setProjectile((prev) => {
           if (!prev || prev.landed) return prev;
+          
+          let currentX = prev.x;
+          let currentY = prev.y;
+          let currentVx = prev.vx;
+          let currentVy = prev.vy;
+          let currentMaxHeight = prev.maxHeight;
+          let newTrail = [...prev.trail];
+          
+          // Run physics steps
+          for (let step = 0; step < steps; step++) {
+            // Physics calculation - gravity in pixels/s² (SCALE converts m to pixels)
+            let ax = 0;
+            let ay = gravity * SCALE;
 
-          // Physics calculation
-          let ax = 0;
-          let ay = gravity * SCALE; // Gravity (positive because canvas Y is inverted)
+            // Air resistance (drag force proportional to velocity squared)
+            if (airResistance > 0) {
+              const speed = Math.sqrt(currentVx * currentVx + currentVy * currentVy);
+              if (speed > 0) {
+                const dragFactor = airResistance * 0.001;
+                ax -= dragFactor * currentVx * speed;
+                ay -= dragFactor * currentVy * speed;
+              }
+            }
 
-          // Air resistance (drag force proportional to velocity squared)
-          if (airResistance > 0) {
-            const speed = Math.sqrt(prev.vx * prev.vx + prev.vy * prev.vy);
-            if (speed > 0) {
-              const dragFactor = airResistance * 0.01;
-              ax -= dragFactor * prev.vx * speed / SCALE;
-              ay -= dragFactor * prev.vy * speed / SCALE;
+            currentVx += ax * fixedDt;
+            currentVy += ay * fixedDt;
+            currentX += currentVx * fixedDt;
+            currentY += currentVy * fixedDt;
+            
+            // Track trail every few steps
+            if (step % 2 === 0) {
+              newTrail = [...newTrail.slice(-200), { x: currentX, y: currentY }];
             }
           }
-
-          const newVx = prev.vx + ax * dt;
-          const newVy = prev.vy + ay * dt;
-          const newX = prev.x + newVx * dt;
-          const newY = prev.y + newVy * dt;
+          
+          const newX = currentX;
+          const newY = currentY;
+          const newVx = currentVx;
+          const newVy = currentVy;
 
           // Calculate current height for max height tracking
           const currentHeight = (GROUND_Y - newY) / SCALE + height;
@@ -358,8 +408,8 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
             y: newY,
             vx: newVx,
             vy: newVy,
-            maxHeight: Math.max(prev.maxHeight, currentHeight),
-            trail: [...prev.trail.slice(-200), { x: newX, y: newY }],
+            maxHeight: Math.max(currentMaxHeight, currentHeight),
+            trail: newTrail,
           };
         });
 
@@ -401,17 +451,30 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Launch Angle: {angle}°
+              Launch Angle (°)
             </label>
-            <input
-              type="range"
-              min="5"
-              max="85"
-              value={angle}
-              onChange={(e) => setAngle(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="5"
+                max="85"
+                value={angle}
+                onChange={(e) => setAngle(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="5"
+                max="85"
+                value={angleInput}
+                onChange={(e) => setAngleInput(e.target.value)}
+                onBlur={() => setAngle(Math.max(5, Math.min(85, Number(angleInput) || 45)))}
+                onKeyDown={(e) => e.key === 'Enter' && setAngle(Math.max(5, Math.min(85, Number(angleInput) || 45)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>5°</span>
               <span>45° (optimal)</span>
@@ -421,17 +484,30 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Initial Velocity: {velocity} m/s
+              Initial Velocity (m/s)
             </label>
-            <input
-              type="range"
-              min="10"
-              max="100"
-              value={velocity}
-              onChange={(e) => setVelocity(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="10"
+                max="100"
+                value={velocity}
+                onChange={(e) => setVelocity(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="10"
+                max="100"
+                value={velocityInput}
+                onChange={(e) => setVelocityInput(e.target.value)}
+                onBlur={() => setVelocity(Math.max(10, Math.min(100, Number(velocityInput) || 50)))}
+                onKeyDown={(e) => e.key === 'Enter' && setVelocity(Math.max(10, Math.min(100, Number(velocityInput) || 50)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>10 m/s</span>
               <span>55 m/s</span>
@@ -441,17 +517,30 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Initial Height: {height} m
+              Initial Height (m)
             </label>
-            <input
-              type="range"
-              min="0"
-              max="30"
-              value={height}
-              onChange={(e) => setHeight(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="30"
+                value={height}
+                onChange={(e) => setHeight(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="0"
+                max="30"
+                value={heightInput}
+                onChange={(e) => setHeightInput(e.target.value)}
+                onBlur={() => setHeight(Math.max(0, Math.min(30, Number(heightInput) || 0)))}
+                onKeyDown={(e) => e.key === 'Enter' && setHeight(Math.max(0, Math.min(30, Number(heightInput) || 0)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>0 m (ground)</span>
               <span>15 m</span>
@@ -464,18 +553,32 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Gravity: {gravity} m/s²
+              Gravity (m/s²)
             </label>
-            <input
-              type="range"
-              min="1"
-              max="25"
-              step="0.1"
-              value={gravity}
-              onChange={(e) => setGravity(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="1"
+                max="25"
+                step="0.1"
+                value={gravity}
+                onChange={(e) => setGravity(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="1"
+                max="25"
+                step="0.1"
+                value={gravityInput}
+                onChange={(e) => setGravityInput(e.target.value)}
+                onBlur={() => setGravity(Math.max(1, Math.min(25, Number(gravityInput) || 9.8)))}
+                onKeyDown={(e) => e.key === 'Enter' && setGravity(Math.max(1, Math.min(25, Number(gravityInput) || 9.8)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>Moon (1.6)</span>
               <span>Earth (9.8)</span>
@@ -485,17 +588,30 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Air Resistance: {airResistance === 0 ? 'None' : `${airResistance}%`}
+              Air Resistance (%)
             </label>
-            <input
-              type="range"
-              min="0"
-              max="50"
-              value={airResistance}
-              onChange={(e) => setAirResistance(Number(e.target.value))}
-              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-              disabled={isRunning}
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="50"
+                value={airResistance}
+                onChange={(e) => setAirResistance(Number(e.target.value))}
+                className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
+                disabled={isRunning}
+              />
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={airResistanceInput}
+                onChange={(e) => setAirResistanceInput(e.target.value)}
+                onBlur={() => setAirResistance(Math.max(0, Math.min(50, Number(airResistanceInput) || 0)))}
+                onKeyDown={(e) => e.key === 'Enter' && setAirResistance(Math.max(0, Math.min(50, Number(airResistanceInput) || 0)))}
+                className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
+                disabled={isRunning}
+              />
+            </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
               <span>Vacuum</span>
               <span>Light Air</span>

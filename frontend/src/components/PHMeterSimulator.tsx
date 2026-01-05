@@ -11,12 +11,17 @@ interface PHMeterSimulatorProps {
 
 export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterSimulatorProps) {
   const [ph, setPh] = useState(7);
+  const [phInput, setPhInput] = useState(String(7));
 
   useEffect(() => {
     if (initialParams) {
       setPh(initialParams.ph || 7);
+      setPhInput(String(initialParams.ph || 7));
     }
   }, [initialParams]);
+
+  // Sync input state when actual pH changes (e.g., from slider or presets)
+  useEffect(() => { setPhInput(String(ph)); }, [ph]);
 
   useEffect(() => {
     onParametersChange?.({ ph });
@@ -108,10 +113,30 @@ export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterS
 
       {/* Controls */}
       <div className="bg-gray-50 p-4 sm:p-6 rounded-lg border border-gray-200 space-y-4 sm:space-y-6">
+        {/* pH Input Field */}
+        <div className="flex justify-center">
+          <div className="w-32">
+            <label className="block text-sm font-medium text-gray-700 mb-2 text-center">
+              Enter pH
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="14"
+              step="0.1"
+              value={phInput}
+              onChange={(e) => setPhInput(e.target.value)}
+              onBlur={() => setPh(Math.max(0, Math.min(14, Number(phInput) || 7)))}
+              onKeyDown={(e) => e.key === 'Enter' && setPh(Math.max(0, Math.min(14, Number(phInput) || 7)))}
+              className="w-full px-3 py-2 text-center text-lg font-bold border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+
         {/* Main pH Slider */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3 sm:mb-4">
-            pH Level Adjuster
+            pH Level Slider
           </label>
           <input
             type="range"
@@ -133,25 +158,25 @@ export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterS
           </div>
         </div>
 
-        {/* Fine Adjustment Buttons */}
-        <div className="flex items-center justify-center gap-4">
+        {/* Quick Presets */}
+        <div className="flex items-center justify-center gap-2 flex-wrap">
           <button
-            onClick={() => setPh(Math.max(0, ph - 0.1))}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-sm sm:text-base"
+            onClick={() => setPh(1)}
+            className="px-3 py-1.5 bg-red-100 rounded-lg hover:bg-red-200 text-xs font-medium text-red-700"
           >
-            - 0.1
+            Acidic (1)
           </button>
           <button
             onClick={() => setPh(7)}
-            className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm sm:text-base"
+            className="px-3 py-1.5 bg-green-100 rounded-lg hover:bg-green-200 text-xs font-medium text-green-700"
           >
-            Reset to 7
+            Neutral (7)
           </button>
           <button
-            onClick={() => setPh(Math.min(14, ph + 0.1))}
-            className="px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 font-medium text-sm sm:text-base"
+            onClick={() => setPh(13)}
+            className="px-3 py-1.5 bg-purple-100 rounded-lg hover:bg-purple-200 text-xs font-medium text-purple-700"
           >
-            + 0.1
+            Basic (13)
           </button>
         </div>
 
