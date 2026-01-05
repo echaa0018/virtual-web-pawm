@@ -40,8 +40,16 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 // Image With Fallback Component
 // ============================================================================
 
-// Backend URL for static assets (same as API but without /api)
-const BACKEND_URL = "http://192.168.18.22:3000";
+// Local image mapping for bundled assets (works in APK builds)
+const LOCAL_IMAGES: Record<string, any> = {
+  '/simple-pendulum.jpg': require('../assets/simple-pendulum.jpg'),
+  '/function-grapher.jpeg': require('../assets/function-grapher.jpeg'),
+  '/ph-scale-simulator.png': require('../assets/ph-scale-simulator.png'),
+  '/projectile-motion.webp': require('../assets/projectile-motion.webp'),
+  '/wave-interference.jpg': require('../assets/wave-interference.jpg'),
+  '/molecular-structure.jpg': require('../assets/molecular-structure.jpg'),
+  '/fractal-explorer.jpg': require('../assets/fractal-explorer.jpg'),
+};
 
 function ImageWithFallback({ src, alt, style, className }: { src?: string | number; alt: string; style?: any; className?: string }) {
   const [error, setError] = useState(false);
@@ -58,10 +66,14 @@ function ImageWithFallback({ src, alt, style, className }: { src?: string | numb
   let imageSource;
   if (typeof src === 'number') {
     imageSource = src;
-  } else if (src.startsWith('/')) {
-    // Relative path - prepend backend URL
-    imageSource = { uri: `${BACKEND_URL}${src}` };
+  } else if (typeof src === 'string' && LOCAL_IMAGES[src]) {
+    // Use local bundled image for known paths
+    imageSource = LOCAL_IMAGES[src];
+  } else if (typeof src === 'string' && src.startsWith('http')) {
+    // Remote URL
+    imageSource = { uri: src };
   } else {
+    // Fallback - try as URI anyway
     imageSource = { uri: src };
   }
 

@@ -4,24 +4,25 @@
     "slug": "houshou-lab",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/HoushouIcon.jpg",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "scheme": "houshoulab",
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/HoushouIcon.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#0d9488"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.houshoulab.mobile"
+      "bundleIdentifier": "com.houshoulab.mobile",
+      "icon": "./assets/HoushouIcon.jpg"
     },
     "android": {
       "package": "com.houshoulab.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0d9488"
+        "foregroundImage": "./assets/HoushouIcon.jpg",
+        "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
@@ -36,6 +37,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "076e3c30-871d-4c7e-8f3f-bef2d6dfd5ed"
+      }
     }
   }
 }
