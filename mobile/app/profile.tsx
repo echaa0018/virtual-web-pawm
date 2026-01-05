@@ -26,7 +26,8 @@ import {
   Clock,
 } from "lucide-react-native";
 
-import { useAuth, api } from "./_layout";
+import { useAuth } from "./_layout";
+import { updateProfile } from "../lib/supabase";
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -84,18 +85,28 @@ export default function ProfileScreen() {
       return;
     }
 
+    if (!user.id) {
+      Alert.alert("Error", "User ID not found");
+      return;
+    }
+
     setIsSaving(true);
     try {
-      const res = await api.put("/user/profile", { 
+      const updatedProfile = await updateProfile(user.id, { 
         name: editName.trim(),
-        profileImage: profileImage,
+        profile_image: profileImage,
       });
-      updateUser({ ...res.data, profileImage });
+      
+      updateUser({ 
+        name: updatedProfile.name,
+        profileImage: updatedProfile.profile_image
+      });
+      
       setIsEditing(false);
       Alert.alert("Success", "Profile updated successfully!");
     } catch (error: any) {
       console.error("Update error:", error);
-      Alert.alert("Error", error.response?.data?.error || "Failed to update profile");
+      Alert.alert("Error", error.message || "Failed to update profile");
     } finally {
       setIsSaving(false);
     }
