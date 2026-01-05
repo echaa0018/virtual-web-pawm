@@ -149,7 +149,7 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
       }
 
       // Display information
-      ctx.fillStyle = '#1f2937';
+      ctx.fillStyle = '#dce5f1ff';
       ctx.font = '14px sans-serif';
       ctx.fillText(`Angle: ${(angle * 180 / Math.PI).toFixed(1)}°`, 20, 30);
       ctx.fillText(`Angular Velocity: ${angularVelocity.toFixed(2)} rad/s`, 20, 50);

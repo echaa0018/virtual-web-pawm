@@ -30,7 +30,7 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
   const [velocity, setVelocity] = useState(50);
   const [gravity, setGravity] = useState(9.8);
   const [airResistance, setAirResistance] = useState(0);
-  const [height, setHeight] = useState(0);
+  const [height, setHeight] = useState(1);
   const [isRunning, setIsRunning] = useState(false);
   const [projectile, setProjectile] = useState<Projectile | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -54,7 +54,7 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
       setVelocity(initialParams.velocity || 50);
       setGravity(initialParams.gravity || 9.8);
       setAirResistance(initialParams.airResistance || 0);
-      setHeight(initialParams.height || 0);
+      setHeight(initialParams.height || 1);
       setIsRunning(false);
       setProjectile(null);
       // Sync input states
@@ -62,7 +62,7 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
       setVelocityInput(String(initialParams.velocity || 50));
       setGravityInput(String(initialParams.gravity || 9.8));
       setAirResistanceInput(String(initialParams.airResistance || 0));
-      setHeightInput(String(initialParams.height || 0));
+      setHeightInput(String(initialParams.height || 1));
     }
   }, [initialParams]);
 
@@ -522,7 +522,7 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
             <div className="flex items-center gap-3">
               <input
                 type="range"
-                min="0"
+                min="1"
                 max="30"
                 value={height}
                 onChange={(e) => setHeight(Number(e.target.value))}
@@ -531,18 +531,18 @@ export function ProjectileMotionSimulator({ onParametersChange, initialParams }:
               />
               <input
                 type="number"
-                min="0"
+                min="1"
                 max="30"
                 value={heightInput}
                 onChange={(e) => setHeightInput(e.target.value)}
-                onBlur={() => setHeight(Math.max(0, Math.min(30, Number(heightInput) || 0)))}
-                onKeyDown={(e) => e.key === 'Enter' && setHeight(Math.max(0, Math.min(30, Number(heightInput) || 0)))}
+                onBlur={() => setHeight(Math.max(1, Math.min(30, Number(heightInput) || 1)))}
+                onKeyDown={(e) => e.key === 'Enter' && setHeight(Math.max(1, Math.min(30, Number(heightInput) || 1)))}
                 className="w-20 px-2 py-1 text-center border border-gray-300 rounded-md text-sm"
                 disabled={isRunning}
               />
             </div>
             <div className="flex justify-between text-xs text-gray-500 mt-1">
-              <span>0 m (ground)</span>
+              <span>1 m (ground)</span>
               <span>15 m</span>
               <span>30 m</span>
             </div>
