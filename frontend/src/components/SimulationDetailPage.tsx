@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { PendulumSimulator } from './PendulumSimulator';
 import { GraphPlotterSimulator } from './GraphPlotterSimulator';
 import { PHMeterSimulator } from './PHMeterSimulator';
+import { ProjectileMotionSimulator } from './ProjectileMotionSimulator';
 import { supabase, getSavedExperiments, saveExperiment } from '../lib/supabase';
 import { toast } from 'sonner';
 import { Save, X } from 'lucide-react';
@@ -138,7 +139,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   const renderSimulator = () => {
       const title = simulation.title?.toLowerCase() || '';
       
-      if (title.includes('pendulum') || title.includes('motion')) {
+      if (title.includes('pendulum')) {
           return (
             <PendulumSimulator 
                 onParametersChange={(params) => setCurrentParams(params)} 
@@ -155,6 +156,13 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
       } else if (title.includes('ph') || title.includes('chem') || title.includes('scale')) {
           return (
             <PHMeterSimulator 
+                onParametersChange={(params) => setCurrentParams(params)} 
+                initialParams={loadedParams}
+            />
+          );
+      } else if (title.includes('projectile') || title.includes('motion')) {
+          return (
+            <ProjectileMotionSimulator 
                 onParametersChange={(params) => setCurrentParams(params)} 
                 initialParams={loadedParams}
             />

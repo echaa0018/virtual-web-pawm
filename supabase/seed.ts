@@ -48,11 +48,12 @@ const simulations = [
   },
   {
     title: 'Projectile Motion',
-    description: 'Launch objects and study their parabolic trajectories under gravity with air resistance.',
+    description: 'Launch objects and study their parabolic trajectories under gravity with air resistance. Adjust launch angle, initial velocity, and gravity to see how they affect the projectile\'s path.',
     category: 'Physics',
     image: '/projectile-motion.webp',
     config: {
-      hasSimulation: false
+      hasSimulation: true,
+      component: 'ProjectileMotionSimulator'
     }
   },
   {
@@ -79,14 +80,36 @@ async function seed() {
   console.log('🌱 Seeding simulations...');
 
   for (const sim of simulations) {
-    const { error } = await supabase
+    // First, check if simulation exists
+    const { data: existing } = await supabase
       .from('simulations')
-      .upsert(sim, { onConflict: 'title' });
+      .select('id')
+      .eq('title', sim.title)
+      .single();
 
-    if (error) {
-      console.error(`Error inserting ${sim.title}:`, error.message);
+    if (existing) {
+      // Update existing simulation
+      const { error } = await supabase
+        .from('simulations')
+        .update(sim)
+        .eq('title', sim.title);
+
+      if (error) {
+        console.error(`Error updating ${sim.title}:`, error.message);
+      } else {
+        console.log(`✅ Updated: ${sim.title}`);
+      }
     } else {
-      console.log(`Inserted/Updated: ${sim.title}`);
+      // Insert new simulation
+      const { error } = await supabase
+        .from('simulations')
+        .insert(sim);
+
+      if (error) {
+        console.error(`Error inserting ${sim.title}:`, error.message);
+      } else {
+        console.log(`✅ Inserted: ${sim.title}`);
+      }
     }
   }
 

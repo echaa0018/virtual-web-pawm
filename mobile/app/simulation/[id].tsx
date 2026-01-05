@@ -29,7 +29,7 @@ import {
   Loader,
 } from "lucide-react-native";
 
-import { useAuth, useApp, PendulumParams, SavedExperiment, GraphPlotterParams, PHMeterParams } from "./../_layout";
+import { useAuth, useApp, PendulumParams, SavedExperiment, GraphPlotterParams, PHMeterParams, ProjectileMotionParams } from "./../_layout";
 import { saveExperiment, deleteExperiment } from "../../lib/supabase";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -57,7 +57,8 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
     angularVelocity: 0,
   };
 
-  const [params, setParams] = useState<PendulumParams>(externalParams || defaultParams);
+  // Merge external params with defaults to ensure all fields exist
+  const [params, setParams] = useState<PendulumParams>({ ...defaultParams, ...externalParams });
   const [isRunning, setIsRunning] = useState(false);
   const [showTrail, setShowTrail] = useState(true);
   const [trail, setTrail] = useState<{ x: number; y: number }[]>([]);
@@ -70,10 +71,13 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
 
   // Sync external params
   useEffect(() => {
-    if (externalParams && JSON.stringify(externalParams) !== JSON.stringify(params)) {
-      setParams(externalParams);
-      angleRef.current = externalParams.angle;
-      angularVelocityRef.current = externalParams.angularVelocity;
+    if (externalParams) {
+      const mergedParams = { ...defaultParams, ...externalParams };
+      if (JSON.stringify(mergedParams) !== JSON.stringify(params)) {
+        setParams(mergedParams);
+        angleRef.current = mergedParams.angle;
+        angularVelocityRef.current = mergedParams.angularVelocity;
+      }
     }
   }, [externalParams]);
 
@@ -234,7 +238,7 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
           <View>
             <View className="flex-row justify-between mb-1">
               <Text className="text-gray-700 font-medium">Length (cm)</Text>
-              <Text className="text-teal-600 font-semibold">{params.length.toFixed(0)}</Text>
+              <Text className="text-teal-600 font-semibold">{(params.length ?? 200).toFixed(0)}</Text>
             </View>
             <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <View
@@ -256,7 +260,7 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
           <View>
             <View className="flex-row justify-between mb-1">
               <Text className="text-gray-700 font-medium">Mass (kg)</Text>
-              <Text className="text-teal-600 font-semibold">{params.mass.toFixed(1)}</Text>
+              <Text className="text-teal-600 font-semibold">{(params.mass ?? 20).toFixed(1)}</Text>
             </View>
             <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <View
@@ -278,19 +282,19 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
           <View>
             <View className="flex-row justify-between mb-1">
               <Text className="text-gray-700 font-medium">Gravity (m/s²)</Text>
-              <Text className="text-teal-600 font-semibold">{params.gravity.toFixed(1)}</Text>
+              <Text className="text-teal-600 font-semibold">{(params.gravity ?? 9.8).toFixed(1)}</Text>
             </View>
             <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <View
                 className="h-full bg-teal-500 rounded-full"
-                style={{ width: `${((params.gravity - 1) / 19) * 100}%` }}
+                style={{ width: `${(((params.gravity ?? 9.8) - 1) / 19) * 100}%` }}
               />
             </View>
             <View className="flex-row justify-between mt-1">
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.max(1, params.gravity - 1))}>
+              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.max(1, (params.gravity ?? 9.8) - 1))}>
                 <Text className="text-teal-600 font-bold text-lg">−</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.min(20, params.gravity + 1))}>
+              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.min(20, (params.gravity ?? 9.8) + 1))}>
                 <Text className="text-teal-600 font-bold text-lg">+</Text>
               </TouchableOpacity>
             </View>
@@ -300,7 +304,7 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
           <View>
             <View className="flex-row justify-between mb-1">
               <Text className="text-gray-700 font-medium">Initial Angle (°)</Text>
-              <Text className="text-teal-600 font-semibold">{((params.angle * 180) / Math.PI).toFixed(0)}</Text>
+              <Text className="text-teal-600 font-semibold">{(((params.angle ?? Math.PI/4) * 180) / Math.PI).toFixed(0)}</Text>
             </View>
             <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
               <View
@@ -475,11 +479,15 @@ interface PHMeterSimulatorProps {
 
 function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSimulatorProps) {
   const defaultParams: PHMeterParams = { ph: 7 };
-  const [params, setParams] = useState<PHMeterParams>(defaultParams);
+  // Merge external params with defaults
+  const [params, setParams] = useState<PHMeterParams>({ ...defaultParams, ...externalParams });
 
   useEffect(() => {
-    if (externalParams && externalParams.ph !== undefined && externalParams.ph !== params.ph) {
-      setParams(externalParams);
+    if (externalParams) {
+      const mergedParams = { ...defaultParams, ...externalParams };
+      if (mergedParams.ph !== params.ph) {
+        setParams(mergedParams);
+      }
     }
   }, [externalParams]);
 
@@ -560,12 +568,12 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
         {/* Digital Display */}
         <View className="bg-gray-800 px-6 py-3 rounded-lg mb-3">
           <Text className="text-3xl font-bold text-green-400 font-mono">
-            pH {params.ph.toFixed(1)}
+            pH {(params.ph ?? 7).toFixed(1)}
           </Text>
         </View>
 
-        <Text className="text-lg font-medium text-teal-600">{getSubstanceName(params.ph)}</Text>
-        <Text className="text-sm font-semibold text-gray-700">{getAcidityLevel(params.ph)}</Text>
+        <Text className="text-lg font-medium text-teal-600">{getSubstanceName(params.ph ?? 7)}</Text>
+        <Text className="text-sm font-semibold text-gray-700">{getAcidityLevel(params.ph ?? 7)}</Text>
       </View>
 
       <View className="p-4">
@@ -624,6 +632,457 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
 }
 
 // ============================================================================
+// Projectile Motion Simulator Component
+// ============================================================================
+
+interface ProjectileSimulatorProps {
+  params?: ProjectileMotionParams;
+  onParamsChange?: (params: ProjectileMotionParams) => void;
+}
+
+interface ProjectileState {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  trail: { x: number; y: number }[];
+  landed: boolean;
+  maxHeight: number;
+  landingDistance: number;
+  flightTime: number;
+}
+
+function ProjectileMotionSimulator({ params: externalParams, onParamsChange }: ProjectileSimulatorProps) {
+  const defaultParams: ProjectileMotionParams = {
+    angle: 45,
+    velocity: 50,
+    gravity: 9.8,
+    airResistance: 0,
+    height: 0,
+  };
+
+  // Merge external params with defaults to ensure all fields exist
+  const [params, setParams] = useState<ProjectileMotionParams>({ ...defaultParams, ...externalParams });
+  const [isRunning, setIsRunning] = useState(false);
+  const [projectile, setProjectile] = useState<ProjectileState | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const timeRef = useRef<number>(0);
+
+  // Canvas dimensions for mobile
+  const CANVAS_WIDTH = CANVAS_SIZE;
+  const CANVAS_HEIGHT = CANVAS_SIZE * 0.75;
+  const SCALE = 2; // pixels per meter
+  const GROUND_Y = CANVAS_HEIGHT - 30;
+
+  useEffect(() => {
+    if (externalParams) {
+      const mergedParams = { ...defaultParams, ...externalParams };
+      if (JSON.stringify(mergedParams) !== JSON.stringify(params)) {
+        setParams(mergedParams);
+        reset();
+      }
+    }
+  }, [externalParams]);
+
+  const handleParamChange = (key: keyof ProjectileMotionParams, value: number) => {
+    const newParams = { ...params, [key]: value };
+    setParams(newParams);
+    onParamsChange?.(newParams);
+  };
+
+  const launch = useCallback(() => {
+    const angleRad = (params.angle * Math.PI) / 180;
+    const vx = params.velocity * Math.cos(angleRad);
+    const vy = -params.velocity * Math.sin(angleRad);
+
+    setProjectile({
+      x: 30,
+      y: GROUND_Y - params.height * SCALE,
+      vx: vx * SCALE,
+      vy: vy * SCALE,
+      trail: [],
+      landed: false,
+      maxHeight: params.height,
+      landingDistance: 0,
+      flightTime: 0,
+    });
+    timeRef.current = 0;
+    setIsRunning(true);
+  }, [params, GROUND_Y, SCALE]);
+
+  const reset = useCallback(() => {
+    setIsRunning(false);
+    setProjectile(null);
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+    timeRef.current = 0;
+  }, []);
+
+  // Physics animation loop
+  useEffect(() => {
+    if (!isRunning || !projectile || projectile.landed) {
+      return;
+    }
+
+    let lastTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const deltaTime = Math.min((currentTime - lastTime) / 1000, 0.033);
+      lastTime = currentTime;
+      timeRef.current += deltaTime;
+
+      setProjectile((prev) => {
+        if (!prev || prev.landed) return prev;
+
+        let ax = 0;
+        let ay = params.gravity * SCALE;
+
+        // Air resistance
+        if (params.airResistance > 0) {
+          const speed = Math.sqrt(prev.vx * prev.vx + prev.vy * prev.vy);
+          if (speed > 0) {
+            const dragFactor = params.airResistance * 0.01;
+            ax -= dragFactor * prev.vx * speed / SCALE;
+            ay -= dragFactor * prev.vy * speed / SCALE;
+          }
+        }
+
+        const newVx = prev.vx + ax * deltaTime;
+        const newVy = prev.vy + ay * deltaTime;
+        const newX = prev.x + newVx * deltaTime;
+        const newY = prev.y + newVy * deltaTime;
+
+        const currentHeight = (GROUND_Y - newY) / SCALE + params.height;
+
+        // Check landing
+        if (newY >= GROUND_Y) {
+          return {
+            ...prev,
+            x: newX,
+            y: GROUND_Y,
+            vx: 0,
+            vy: 0,
+            landed: true,
+            maxHeight: Math.max(prev.maxHeight, currentHeight),
+            landingDistance: (newX - 30) / SCALE,
+            flightTime: timeRef.current,
+            trail: [...prev.trail, { x: newX, y: GROUND_Y }],
+          };
+        }
+
+        // Out of bounds
+        if (newX > CANVAS_WIDTH + 50) {
+          return {
+            ...prev,
+            landed: true,
+            landingDistance: (newX - 30) / SCALE,
+            flightTime: timeRef.current,
+          };
+        }
+
+        return {
+          ...prev,
+          x: newX,
+          y: newY,
+          vx: newVx,
+          vy: newVy,
+          maxHeight: Math.max(prev.maxHeight, currentHeight),
+          trail: [...prev.trail.slice(-100), { x: newX, y: newY }],
+          flightTime: timeRef.current,
+        };
+      });
+
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [isRunning, projectile, params, GROUND_Y, SCALE, CANVAS_WIDTH]);
+
+  // Stop when landed
+  useEffect(() => {
+    if (projectile?.landed) {
+      setIsRunning(false);
+    }
+  }, [projectile?.landed]);
+
+  const platformX = 30;
+  const platformY = GROUND_Y - params.height * SCALE;
+  const angleRad = (params.angle * Math.PI) / 180;
+  const cannonLength = 25;
+
+  return (
+    <View className="bg-white rounded-xl">
+      {/* SVG Canvas */}
+      <View className="bg-gradient-to-b from-sky-100 to-sky-50 rounded-t-xl overflow-hidden" style={{ width: CANVAS_WIDTH, height: CANVAS_HEIGHT }}>
+        <Svg width={CANVAS_WIDTH} height={CANVAS_HEIGHT}>
+          <Defs>
+            <RadialGradient id="projectileGradient" cx="30%" cy="30%" r="70%">
+              <Stop offset="0%" stopColor="#ef4444" />
+              <Stop offset="100%" stopColor="#b91c1c" />
+            </RadialGradient>
+          </Defs>
+
+          {/* Sky background */}
+          <Circle cx={CANVAS_WIDTH / 2} cy={0} r={CANVAS_HEIGHT} fill="#e0f4ff" />
+
+          {/* Ground */}
+          <Line x1={0} y1={GROUND_Y} x2={CANVAS_WIDTH} y2={GROUND_Y} stroke="#22c55e" strokeWidth={60} />
+
+          {/* Distance markers */}
+          {[0, 25, 50, 75, 100].map((dist) => {
+            const x = 30 + dist * SCALE;
+            if (x < CANVAS_WIDTH - 20) {
+              return (
+                <G key={dist}>
+                  <Line x1={x} y1={GROUND_Y} x2={x} y2={GROUND_Y + 8} stroke="#16a34a" strokeWidth={1} />
+                </G>
+              );
+            }
+            return null;
+          })}
+
+          {/* Platform */}
+          <Line x1={platformX} y1={platformY} x2={platformX} y2={GROUND_Y + 5} stroke="#6b7280" strokeWidth={8} />
+
+          {/* Cannon */}
+          <G transform={`translate(${platformX}, ${platformY}) rotate(${-params.angle})`}>
+            <Line x1={0} y1={0} x2={cannonLength} y2={0} stroke="#374151" strokeWidth={10} strokeLinecap="round" />
+            <Circle cx={0} cy={0} r={8} fill="#1f2937" />
+          </G>
+
+          {/* Trail */}
+          {projectile && projectile.trail.length > 1 && projectile.trail.map((point, index) => {
+            if (index % 2 === 0) {
+              const opacity = 0.2 + (index / projectile.trail.length) * 0.4;
+              return (
+                <Circle
+                  key={index}
+                  cx={point.x}
+                  cy={point.y}
+                  r={3}
+                  fill={`rgba(239, 68, 68, ${opacity})`}
+                />
+              );
+            }
+            return null;
+          })}
+
+          {/* Projectile */}
+          {projectile && (
+            <>
+              {/* Shadow */}
+              <Circle cx={projectile.x} cy={GROUND_Y + 3} r={6} fill="rgba(0,0,0,0.2)" />
+              {/* Ball */}
+              <Circle cx={projectile.x} cy={projectile.y} r={10} fill="url(#projectileGradient)" />
+              {/* Shine */}
+              <Circle cx={projectile.x - 3} cy={projectile.y - 3} r={3} fill="rgba(255,255,255,0.4)" />
+            </>
+          )}
+
+          {/* Velocity preview arrow (when not running) */}
+          {!isRunning && !projectile && (
+            <>
+              <Line
+                x1={platformX}
+                y1={platformY}
+                x2={platformX + params.velocity * 0.6 * Math.cos(angleRad)}
+                y2={platformY - params.velocity * 0.6 * Math.sin(angleRad)}
+                stroke="#3b82f6"
+                strokeWidth={2}
+                strokeDasharray="4,4"
+              />
+            </>
+          )}
+        </Svg>
+      </View>
+
+      {/* Results Panel */}
+      {projectile?.landed && (
+        <View className="bg-green-50 p-3 border-b border-green-200">
+          <Text className="text-green-800 font-semibold mb-2 text-center">🎯 Results</Text>
+          <View className="flex-row justify-around">
+            <View className="items-center">
+              <Text className="text-xs text-green-600">Distance</Text>
+              <Text className="text-lg font-bold text-green-800">{projectile.landingDistance.toFixed(1)}m</Text>
+            </View>
+            <View className="items-center">
+              <Text className="text-xs text-green-600">Max Height</Text>
+              <Text className="text-lg font-bold text-green-800">{projectile.maxHeight.toFixed(1)}m</Text>
+            </View>
+            <View className="items-center">
+              <Text className="text-xs text-green-600">Flight Time</Text>
+              <Text className="text-lg font-bold text-green-800">{projectile.flightTime.toFixed(2)}s</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Controls */}
+      <View className="p-4">
+        {/* Launch/Reset Button */}
+        <View className="flex-row justify-center mb-6">
+          {!isRunning && !projectile?.landed ? (
+            <TouchableOpacity
+              onPress={launch}
+              className="flex-row items-center gap-2 px-8 py-3 rounded-lg bg-teal-600"
+            >
+              <Play size={20} color="white" />
+              <Text className="text-white font-semibold">Launch 🚀</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={reset}
+              className="flex-row items-center gap-2 px-8 py-3 rounded-lg bg-orange-500"
+            >
+              <Text className="text-white font-semibold">🔄 Reset</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Parameter Controls */}
+        <View className="space-y-4">
+          {/* Angle */}
+          <View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-gray-700 font-medium">Launch Angle</Text>
+              <Text className="text-teal-600 font-semibold">{params.angle}°</Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-teal-500 rounded-full"
+                style={{ width: `${((params.angle - 5) / 80) * 100}%` }}
+              />
+            </View>
+            <View className="flex-row justify-between mt-1">
+              <TouchableOpacity onPress={() => handleParamChange("angle", Math.max(5, params.angle - 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleParamChange("angle", Math.min(85, params.angle + 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Velocity */}
+          <View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-gray-700 font-medium">Initial Velocity</Text>
+              <Text className="text-teal-600 font-semibold">{params.velocity} m/s</Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-teal-500 rounded-full"
+                style={{ width: `${((params.velocity - 10) / 90) * 100}%` }}
+              />
+            </View>
+            <View className="flex-row justify-between mt-1">
+              <TouchableOpacity onPress={() => handleParamChange("velocity", Math.max(10, params.velocity - 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleParamChange("velocity", Math.min(100, params.velocity + 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Gravity */}
+          <View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-gray-700 font-medium">Gravity</Text>
+              <Text className="text-teal-600 font-semibold">{(params.gravity ?? 9.8).toFixed(1)} m/s²</Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-teal-500 rounded-full"
+                style={{ width: `${((params.gravity - 1) / 24) * 100}%` }}
+              />
+            </View>
+            <View className="flex-row justify-between mt-1">
+              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.max(1, params.gravity - 1))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleParamChange("gravity", Math.min(25, params.gravity + 1))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Air Resistance */}
+          <View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-gray-700 font-medium">Air Resistance</Text>
+              <Text className="text-teal-600 font-semibold">{params.airResistance === 0 ? 'None' : `${params.airResistance}%`}</Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-teal-500 rounded-full"
+                style={{ width: `${(params.airResistance / 50) * 100}%` }}
+              />
+            </View>
+            <View className="flex-row justify-between mt-1">
+              <TouchableOpacity onPress={() => handleParamChange("airResistance", Math.max(0, params.airResistance - 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleParamChange("airResistance", Math.min(50, params.airResistance + 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Initial Height */}
+          <View>
+            <View className="flex-row justify-between mb-1">
+              <Text className="text-gray-700 font-medium">Initial Height</Text>
+              <Text className="text-teal-600 font-semibold">{params.height} m</Text>
+            </View>
+            <View className="h-2 bg-gray-200 rounded-full overflow-hidden">
+              <View
+                className="h-full bg-teal-500 rounded-full"
+                style={{ width: `${(params.height / 30) * 100}%` }}
+              />
+            </View>
+            <View className="flex-row justify-between mt-1">
+              <TouchableOpacity onPress={() => handleParamChange("height", Math.max(0, params.height - 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>−</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleParamChange("height", Math.min(30, params.height + 5))} disabled={isRunning}>
+                <Text className={`font-bold text-lg ${isRunning ? "text-gray-400" : "text-teal-600"}`}>+</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Theoretical Calculations */}
+        <View className="bg-gray-50 rounded-lg p-3 mt-4 border border-gray-200">
+          <Text className="text-xs font-semibold text-gray-600 mb-1">Theoretical (no air):</Text>
+          <Text className="text-xs text-gray-500">
+            Max Range: {(((params.velocity ?? 50) ** 2 * Math.sin(2 * (params.angle ?? 45) * Math.PI / 180)) / (params.gravity ?? 9.8)).toFixed(1)}m
+          </Text>
+          <Text className="text-xs text-gray-500">
+            Max Height: {(((params.velocity ?? 50) ** 2 * Math.sin((params.angle ?? 45) * Math.PI / 180) ** 2) / (2 * (params.gravity ?? 9.8)) + (params.height ?? 0)).toFixed(1)}m
+          </Text>
+        </View>
+
+        {/* Info Box */}
+        <View className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+          <Text className="text-xs text-blue-800">
+            <Text className="font-semibold">📚 Physics:</Text> Projectile motion follows a parabolic path. 
+            The optimal angle for max range (no air resistance) is 45°. Air resistance reduces range and changes trajectory.
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ============================================================================
 // Save Experiment Modal (matches frontend SaveExperimentModal.tsx)
 // ============================================================================
 
@@ -637,7 +1096,7 @@ function SaveExperimentModal({
   visible: boolean;
   onClose: () => void;
   onSave: (name: string) => void;
-  params: PendulumParams | GraphPlotterParams | PHMeterParams;
+  params: PendulumParams | GraphPlotterParams | PHMeterParams | ProjectileMotionParams;
   simulationType?: string;
 }) {
   const [name, setName] = useState("");
@@ -680,6 +1139,18 @@ function SaveExperimentModal({
       const p = params as PHMeterParams;
       return (
         <Text className="text-sm text-gray-600">• pH Level: {p.ph?.toFixed(1) || '7.0'}</Text>
+      );
+    } else if ('velocity' in params && 'airResistance' in params) {
+      // ProjectileMotionParams
+      const p = params as ProjectileMotionParams;
+      return (
+        <>
+          <Text className="text-sm text-gray-600">• Angle: {p.angle || 45}°</Text>
+          <Text className="text-sm text-gray-600">• Velocity: {p.velocity || 50} m/s</Text>
+          <Text className="text-sm text-gray-600">• Gravity: {p.gravity?.toFixed(1) || 9.8} m/s²</Text>
+          <Text className="text-sm text-gray-600">• Air Resistance: {p.airResistance || 0}%</Text>
+          <Text className="text-sm text-gray-600">• Height: {p.height || 0} m</Text>
+        </>
       );
     }
     return <Text className="text-sm text-gray-600">No parameters to display</Text>;
@@ -803,6 +1274,8 @@ function SavedExperimentsList({
                 ? `L: ${(exp.parameters as PendulumParams).length}cm • M: ${(exp.parameters as PendulumParams).mass}kg • G: ${(exp.parameters as PendulumParams).gravity}m/s² • θ: ${(((exp.parameters as PendulumParams).angle * 180) / Math.PI).toFixed(0)}°`
                 : 'expression' in exp.parameters
                 ? `f(x) = ${(exp.parameters as GraphPlotterParams).expression} • Zoom: ${(exp.parameters as GraphPlotterParams).zoom}`
+                : 'velocity' in exp.parameters && 'airResistance' in exp.parameters
+                ? `θ: ${(exp.parameters as ProjectileMotionParams).angle}° • v₀: ${(exp.parameters as ProjectileMotionParams).velocity}m/s • g: ${(exp.parameters as ProjectileMotionParams).gravity}m/s²`
                 : `pH: ${(exp.parameters as PHMeterParams).ph.toFixed(1)}`}
             </Text>
           </View>
@@ -865,6 +1338,15 @@ export default function SimulationDetailPage() {
           ph: 7,
         };
         setCurrentParams(defaultPHParams);
+      } else if (title.includes('projectile') || title.includes('motion') || component === 'ProjectileMotionSimulator') {
+        const defaultProjectileParams: ProjectileMotionParams = {
+          angle: 45,
+          velocity: 50,
+          gravity: 9.8,
+          airResistance: 0,
+          height: 0,
+        };
+        setCurrentParams(defaultProjectileParams);
       }
     }
   }, [selectedSimulation]);
@@ -916,7 +1398,7 @@ export default function SimulationDetailPage() {
     }
   };
 
-  const handleParamsChange = (params: PendulumParams | GraphPlotterParams | PHMeterParams) => {
+  const handleParamsChange = (params: PendulumParams | GraphPlotterParams | PHMeterParams | ProjectileMotionParams) => {
     setCurrentParams(params);
     // Clear loaded params when user changes parameters manually
     if (loadedParams) {
@@ -940,6 +1422,10 @@ export default function SimulationDetailPage() {
     } else if (title.includes('ph') || title.includes('chem') || title.includes('scale') || component === 'PHMeterSimulator') {
       return (
         <PHMeterSimulator params={(effectiveParams as unknown) as PHMeterParams} onParamsChange={handleParamsChange} />
+      );
+    } else if (title.includes('projectile') || title.includes('motion') || component === 'ProjectileMotionSimulator') {
+      return (
+        <ProjectileMotionSimulator params={(effectiveParams as unknown) as ProjectileMotionParams} onParamsChange={handleParamsChange} />
       );
     } else {
       return (
@@ -1052,7 +1538,7 @@ export default function SimulationDetailPage() {
         visible={saveModalVisible}
         onClose={() => setSaveModalVisible(false)}
         onSave={handleSaveExperiment}
-        params={currentParams}
+        params={currentParams as PendulumParams | GraphPlotterParams | PHMeterParams | ProjectileMotionParams}
         simulationType={selectedSimulation?.config?.component}
       />
     </SafeAreaView>

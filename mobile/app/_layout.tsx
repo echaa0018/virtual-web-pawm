@@ -49,7 +49,15 @@ export interface PHMeterParams {
   ph: number;
 }
 
-export type SimulatorParams = PendulumParams | GraphPlotterParams | PHMeterParams;
+export interface ProjectileMotionParams {
+  angle: number;       // Launch angle in degrees
+  velocity: number;    // Initial velocity in m/s
+  gravity: number;     // Gravity in m/s²
+  airResistance: number; // Air resistance coefficient (0 = none)
+  height: number;      // Initial height in meters
+}
+
+export type SimulatorParams = PendulumParams | GraphPlotterParams | PHMeterParams | ProjectileMotionParams;
 
 export interface SavedExperiment {
   id: number;
