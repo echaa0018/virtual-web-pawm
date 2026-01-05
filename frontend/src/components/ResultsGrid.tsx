@@ -22,7 +22,6 @@ interface ResultsGridProps {
   simulations: Simulation[];
   filterOpen: boolean;
   setFilterOpen: (open: boolean) => void;
-  onSimulationClick: (simulation: Simulation) => void;
   selectedCategories?: string[];
   selectedSubcategories?: string[];
 }
@@ -31,7 +30,6 @@ export function ResultsGrid({
   simulations,
   filterOpen, 
   setFilterOpen, 
-  onSimulationClick, 
   selectedCategories = [], 
   selectedSubcategories = [] 
 }: ResultsGridProps) {
