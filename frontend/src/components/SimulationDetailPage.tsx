@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { PendulumSimulator } from './PendulumSimulator';
 import { GraphPlotterSimulator } from './GraphPlotterSimulator';
 import { PHMeterSimulator } from './PHMeterSimulator';
 import { ProjectileMotionSimulator } from './ProjectileMotionSimulator';
-import { supabase, getSavedExperiments, saveExperiment } from '../lib/supabase';
+import { supabase, getSimulationById, getSavedExperiments, saveExperiment } from '../lib/supabase';
+import type { Simulation } from '../lib/supabase';
+import type { AppOutletContext } from '../App';
 import { toast } from 'sonner';
-import { Save, X } from 'lucide-react';
+import { Save, X, Loader2 } from 'lucide-react';
 
 // Local type definition for saved experiments
 interface SavedExperimentState {
@@ -18,15 +21,16 @@ interface SavedExperimentState {
   updated_at: string;
 }
 
-interface Props {
-  simulation: any;
-  user: any;
-  onBack: () => void;
-  onParamsChange?: (params: any) => void;
-  onSaveHandlerReady?: (handler: (name: string) => void) => void;
-}
-
-export function SimulationDetailPage({ simulation, user, onBack, onParamsChange, onSaveHandlerReady }: Props) {
+export function SimulationDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { user } = useOutletContext<AppOutletContext>();
+  
+  // Simulation data state
+  const [simulation, setSimulation] = useState<Simulation | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  
   const [activeTab, setActiveTab] = useState('simulation');
   const [currentParams, setCurrentParams] = useState<any>({}); // Current Sim State
   const [history, setHistory] = useState<SavedExperimentState[]>([]); // Saved experiments
@@ -34,42 +38,44 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   const [showSaveModal, setShowSaveModal] = useState(false); // Save modal visibility
   const [experimentName, setExperimentName] = useState(''); // Name for saved experiment
   const [isLoadingHistory, setIsLoadingHistory] = useState(false); // Loading state for history
-  
-  // Notify parent when params change
-  useEffect(() => {
-    if (onParamsChange && currentParams) {
-      onParamsChange(currentParams);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentParams]);
 
-  // Provide save handler to parent
+  // Fetch simulation data when component mounts or ID changes
   useEffect(() => {
-    if (onSaveHandlerReady) {
-      onSaveHandlerReady(async (name: string) => {
-        try {
-          await saveExperiment(parseInt(simulation.id), name, currentParams);
-          toast.success('Experiment saved successfully!');
-        } catch (err: any) {
-          console.error('Save error:', err);
-          if (err.message?.includes('logged in')) {
-            toast.error('Please login to save experiments.');
-          } else {
-            toast.error('Failed to save: ' + err.message);
-          }
+    const fetchSimulation = async () => {
+      if (!id) {
+        setError('No simulation ID provided');
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const data = await getSimulationById(parseInt(id));
+        if (data) {
+          setSimulation(data);
+        } else {
+          setError('Simulation not found');
         }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [simulation.id, currentParams]);
+      } catch (err: any) {
+        console.error('Failed to fetch simulation:', err);
+        setError('Failed to load simulation');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchSimulation();
+  }, [id]);
 
   // Function to fetch saved experiments from Supabase
   const fetchHistory = async () => {
-    if (!user) return;
+    if (!user || !id) return;
     
     setIsLoadingHistory(true);
     try {
-      const experiments = await getSavedExperiments(parseInt(simulation.id));
+      const experiments = await getSavedExperiments(parseInt(id));
       setHistory(experiments);
     } catch (err: any) {
       console.error('Failed to fetch history:', err);
@@ -81,10 +87,10 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
 
   // Fetch saved history when tab changes or user changes
   useEffect(() => {
-    if (activeTab === 'saved' && user) {
+    if (activeTab === 'saved' && user && id) {
       fetchHistory();
     }
-  }, [activeTab, simulation.id, user]);
+  }, [activeTab, id, user]);
 
   const openSaveModal = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -105,14 +111,14 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
   };
 
   const handleSave = async () => {
-    if (!experimentName.trim()) {
+    if (!experimentName.trim() || !id) {
       toast.error("Please enter a name for your experiment.");
       return;
     }
     
     try {
       await saveExperiment(
-        parseInt(simulation.id),
+        parseInt(id),
         experimentName.trim(),
         currentParams
       );
@@ -134,6 +140,47 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     setLoadedParams({ ...experimentData });
     setActiveTab('simulation');
   };
+
+  const handleBack = () => {
+    navigate('/');
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-teal-600 mx-auto mb-4" />
+          <p className="text-gray-600">Loading simulation...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !simulation) {
+    return (
+      <div className="bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-24 h-24 mx-auto mb-6 bg-red-100 rounded-full flex items-center justify-center">
+            <X className="w-12 h-12 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            {error || 'Simulation not found'}
+          </h2>
+          <p className="text-gray-500 mb-6">
+            The simulation you're looking for doesn't exist or couldn't be loaded.
+          </p>
+          <button
+            onClick={handleBack}
+            className="px-6 py-3 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
+          >
+            Back to Home
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Logic to determine which simulator to render based on title or ID
   const renderSimulator = () => {
@@ -184,7 +231,7 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{simulation.title}</h1>
-          <button onClick={onBack} className="text-gray-500 hover:text-gray-700 font-medium">Back to Home</button>
+          <button onClick={handleBack} className="text-gray-500 hover:text-gray-700 font-medium">Back to Home</button>
         </div>
 
         {/* Tabs */}

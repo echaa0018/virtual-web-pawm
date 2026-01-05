@@ -1,40 +1,29 @@
 // src/App.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { Homepage } from './components/Homepage';
-import { SimulationDetailPage } from './components/SimulationDetailPage';
 import { AuthModal } from './components/AuthModal';
-import { SaveExperimentModal } from './components/SaveExperimentModal';
 import { UserProfile } from './components/UserProfile';
 import { Toaster } from './components/ui/sonner';
 import { supabase, getSimulations, getProfile } from './lib/supabase';
 import type { Simulation } from './lib/supabase';
 
+// Context type for outlet
+export interface AppOutletContext {
+  user: any;
+  simulations: Simulation[];
+}
+
 function App() {
-  const [page, setPage] = useState<'home' | 'detail'>('home');
-  const [selectedSim, setSelectedSim] = useState<any>(null);
+  const navigate = useNavigate();
   const [simulations, setSimulations] = useState<Simulation[]>([]); // List from Supabase
   const [user, setUser] = useState<any>(null);
   
   // Modals
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [showSaveModal, setShowSaveModal] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  
-  // Current simulation parameters and save handler
-  const [currentParams, setCurrentParams] = useState<any>(null);
-  const [saveHandler, setSaveHandler] = useState<((name: string) => void) | null>(null);
-
-  // Memoized callbacks to prevent infinite loops
-  const handleParamsChange = useCallback((params: any) => {
-    setCurrentParams(params);
-  }, []);
-
-  const handleSaveHandlerReady = useCallback((handler: (name: string) => void) => {
-    setSaveHandler(() => handler);
-  }, []);
 
   // 1. Check for logged in user on load with Supabase
   useEffect(() => {
@@ -91,12 +80,18 @@ function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    setPage('home');
+    navigate('/');
   };
 
   const handleAuthSuccess = (userData: any) => {
     setUser(userData);
     setShowAuthModal(false);
+  };
+
+  // Context to pass to child routes
+  const outletContext: AppOutletContext = {
+    user,
+    simulations,
   };
 
   return (
@@ -107,28 +102,12 @@ function App() {
         onLoginClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
         onRegisterClick={() => { setAuthMode('register'); setShowAuthModal(true); }}
         onSignOut={handleLogout}
-        onLogoClick={() => setPage('home')}
+        onLogoClick={() => navigate('/')}
         onProfileClick={() => setShowProfileModal(true)}
       />
       
       <div className="flex-1">
-        {page === 'home' && (
-          // Pass the real backend data to Homepage
-          <Homepage 
-            simulations={simulations} 
-            onSimulationClick={(sim) => { setSelectedSim(sim); setPage('detail'); }} 
-          />
-        )}
-        
-        {page === 'detail' && selectedSim && (
-          <SimulationDetailPage 
-            simulation={selectedSim}
-            user={user}
-            onBack={() => setShowSaveModal(true)}
-            onParamsChange={handleParamsChange}
-            onSaveHandlerReady={handleSaveHandlerReady}
-          />
-        )}
+        <Outlet context={outletContext} />
       </div>
 
       <Footer />
@@ -139,21 +118,6 @@ function App() {
           onClose={() => setShowAuthModal(false)}
           onSuccess={handleAuthSuccess}
           onSwitchMode={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-        />
-      )}
-
-      {showSaveModal && (
-        <SaveExperimentModal
-           onDiscard={() => { setShowSaveModal(false); setPage('home'); }}
-           onCancel={() => setShowSaveModal(false)}
-           onSave={(experimentName) => {
-             if (saveHandler) {
-               saveHandler(experimentName);
-             }
-             setShowSaveModal(false);
-             setPage('home');
-           }}
-           currentParams={currentParams}
         />
       )}
 

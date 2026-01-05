@@ -134,13 +134,13 @@ export function ResultsGrid({
       <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6' : 'flex flex-col gap-4'}>
         {sortedSimulations.map((simulation) => (
           <SimulationCard 
-            key={simulation.id} 
+            key={simulation.id}
+            id={simulation.id}
             title={simulation.title}
             image={simulation.image || 'https://placehold.co/600x400?text=Simulation'}
             isNew={simulation.isNew || false}
             hasSimulation={simulation.config?.hasSimulation ?? false}
             viewMode={viewMode}
-            onClick={() => onSimulationClick(simulation)}
           />
         ))}
       </div>

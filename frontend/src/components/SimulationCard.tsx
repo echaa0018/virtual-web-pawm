@@ -1,27 +1,33 @@
+import { Link } from 'react-router-dom';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 
 interface SimulationCardProps {
+  id: number;
   title: string;
   image: string;
   isNew: boolean;
   hasSimulation?: boolean;
   viewMode?: 'grid' | 'list';
-  onClick: () => void;
 }
 
-export function SimulationCard({ title, image, isNew, hasSimulation = true, viewMode = 'grid', onClick }: SimulationCardProps) {
+export function SimulationCard({ id, title, image, isNew, hasSimulation = true, viewMode = 'grid' }: SimulationCardProps) {
   const isDisabled = !hasSimulation;
 
-  const handleClick = () => {
-    if (!isDisabled) {
-      onClick();
+  // Wrapper component - Link if enabled, div if disabled
+  const CardWrapper = ({ children, className }: { children: React.ReactNode; className: string }) => {
+    if (isDisabled) {
+      return <div className={className}>{children}</div>;
     }
+    return (
+      <Link to={`/simulation/${id}`} className={className}>
+        {children}
+      </Link>
+    );
   };
 
   if (viewMode === 'list') {
     return (
-      <div 
-        onClick={handleClick}
+      <CardWrapper
         className={`bg-white border border-gray-200 rounded-lg overflow-hidden transition-shadow flex flex-row ${
           isDisabled 
             ? 'opacity-50 cursor-not-allowed' 
@@ -61,13 +67,12 @@ export function SimulationCard({ title, image, isNew, hasSimulation = true, view
             {title}
           </h3>
         </div>
-      </div>
+      </CardWrapper>
     );
   }
 
   return (
-    <div 
-      onClick={handleClick}
+    <CardWrapper
       className={`bg-white border border-gray-200 rounded-lg overflow-hidden transition-shadow ${
         isDisabled 
           ? 'opacity-50 cursor-not-allowed' 
@@ -107,6 +112,6 @@ export function SimulationCard({ title, image, isNew, hasSimulation = true, view
           {title}
         </h3>
       </div>
-    </div>
+    </CardWrapper>
   );
 }
