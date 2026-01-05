@@ -85,7 +85,7 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (!user.id) {
+    if (!user?.id) {
       Alert.alert("Error", "User ID not found");
       return;
     }

@@ -60,15 +60,6 @@ export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterS
     return 'Highly caustic. Can cause severe chemical burns.';
   };
 
-  // Quick pH presets
-  const presets = [
-    { label: 'Lemon', value: 2 },
-    { label: 'Coffee', value: 5 },
-    { label: 'Water', value: 7 },
-    { label: 'Soap', value: 10 },
-    { label: 'Bleach', value: 13 },
-  ];
-
   return (
     <div className="space-y-6 sm:space-y-8 w-full mx-auto">
       {/* Visualization Area */}
@@ -139,28 +130,6 @@ export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterS
             <span>0 (Acidic)</span>
             <span className="hidden sm:inline">7 (Neutral)</span>
             <span>14 (Basic)</span>
-          </div>
-        </div>
-
-        {/* Quick Presets */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Quick Presets
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {presets.map((preset) => (
-              <button
-                key={preset.value}
-                onClick={() => setPh(preset.value)}
-                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm rounded-lg font-medium transition-all ${
-                  Math.abs(ph - preset.value) < 0.5
-                    ? 'bg-teal-600 text-white shadow-md'
-                    : 'bg-white border border-gray-300 text-gray-700 hover:bg-teal-50 hover:border-teal-500'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
           </div>
         </div>
 

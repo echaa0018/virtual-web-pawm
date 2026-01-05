@@ -40,11 +40,22 @@ export interface Simulation {
 
 export { PendulumParams };
 
+export interface GraphPlotterParams {
+  expression: string;
+  zoom: number;
+}
+
+export interface PHMeterParams {
+  ph: number;
+}
+
+export type SimulatorParams = PendulumParams | GraphPlotterParams | PHMeterParams;
+
 export interface SavedExperiment {
   id: number;
   name: string;
-  data: PendulumParams;
-  parameters: PendulumParams;
+  data: SimulatorParams;
+  parameters: SimulatorParams;
   createdAt: string;
   simulationId?: number;
 }
@@ -64,14 +75,14 @@ interface AppContextType {
   simulations: Simulation[];
   selectedSimulation: Simulation | null;
   isLoading: boolean;
-  currentParams: PendulumParams;
-  loadedParams: PendulumParams | null;
+  currentParams: SimulatorParams | null;
+  loadedParams: SimulatorParams | null;
   savedExperiments: SavedExperiment[];
   isLoadingSavedExperiments: boolean;
   fetchSimulations: () => Promise<void>;
   selectSimulation: (simulation: Simulation | null) => void;
-  setCurrentParams: (params: PendulumParams) => void;
-  setLoadedParams: (params: PendulumParams | null) => void;
+  setCurrentParams: (params: SimulatorParams | null) => void;
+  setLoadedParams: (params: SimulatorParams | null) => void;
   saveExperiment: (name: string) => Promise<void>;
   fetchSavedExperiments: (simulationId: number) => Promise<void>;
   loadExperiment: (experiment: SavedExperiment) => void;
@@ -203,16 +214,8 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   const [selectedSimulation, setSelectedSimulation] = useState<Simulation | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingSavedExperiments, setIsLoadingSavedExperiments] = useState(false);
-  const defaultParams: PendulumParams = {
-    length: 200,
-    mass: 20,
-    gravity: 9.8,
-    damping: 0.999,
-    angle: Math.PI / 4,
-    angularVelocity: 0,
-  };
-  const [currentParams, setCurrentParams] = useState<PendulumParams>(defaultParams);
-  const [loadedParams, setLoadedParams] = useState<PendulumParams | null>(null);
+  const [currentParams, setCurrentParams] = useState<SimulatorParams | null>(null);
+  const [loadedParams, setLoadedParams] = useState<SimulatorParams | null>(null);
   const [savedExperiments, setSavedExperiments] = useState<SavedExperiment[]>([]);
 
   useEffect(() => { fetchSimulationsFromSupabase(); }, []);
@@ -263,19 +266,12 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
       // Map Supabase data to SavedExperiment format
       const experiments: SavedExperiment[] = data.map((exp) => {
         const rawData = exp.data || {};
-        const safeParams: PendulumParams = {
-          length: rawData.length ?? defaultParams.length,
-          mass: rawData.mass ?? defaultParams.mass,
-          gravity: rawData.gravity ?? defaultParams.gravity,
-          damping: rawData.damping ?? defaultParams.damping,
-          angle: rawData.angle ?? defaultParams.angle,
-          angularVelocity: rawData.angularVelocity ?? defaultParams.angularVelocity,
-        };
+        // Store data as-is, no need to transform
         return {
           id: exp.id,
           name: exp.name,
-          data: safeParams,
-          parameters: safeParams,
+          data: rawData as SimulatorParams,
+          parameters: rawData as SimulatorParams,
           createdAt: exp.created_at,
           simulationId: exp.simulation_id,
         };
@@ -289,15 +285,8 @@ function AppProviderInner({ children }: { children: React.ReactNode }) {
   };
 
   const loadExperiment = (exp: SavedExperiment) => {
-    const safeParams: PendulumParams = {
-      length: exp.parameters?.length ?? defaultParams.length,
-      mass: exp.parameters?.mass ?? defaultParams.mass,
-      gravity: exp.parameters?.gravity ?? defaultParams.gravity,
-      damping: exp.parameters?.damping ?? defaultParams.damping,
-      angle: exp.parameters?.angle ?? defaultParams.angle,
-      angularVelocity: exp.parameters?.angularVelocity ?? defaultParams.angularVelocity,
-    };
-    setLoadedParams(safeParams);
+    // Load params as-is, let the simulators handle their own defaults
+    setLoadedParams(exp.parameters || exp.data);
   };
 
   return (

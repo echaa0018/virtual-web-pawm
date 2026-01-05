@@ -29,20 +29,11 @@ import {
   Loader,
 } from "lucide-react-native";
 
-import { useAuth, useApp, PendulumParams, SavedExperiment } from "./../_layout";
+import { useAuth, useApp, PendulumParams, SavedExperiment, GraphPlotterParams, PHMeterParams } from "./../_layout";
+import { saveExperiment, deleteExperiment } from "../../lib/supabase";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CANVAS_SIZE = Math.min(SCREEN_WIDTH - 32, 350);
-
-// Types for other simulators
-interface GraphPlotterParams {
-  expression: string;
-  zoom: number;
-}
-
-interface PHMeterParams {
-  ph: number;
-}
 
 // ============================================================================
 // Pendulum Simulator Component (matches frontend PendulumSimulator.tsx physics)
@@ -79,7 +70,7 @@ function PendulumSimulator({ width = CANVAS_SIZE, height = CANVAS_SIZE, params: 
 
   // Sync external params
   useEffect(() => {
-    if (externalParams) {
+    if (externalParams && JSON.stringify(externalParams) !== JSON.stringify(params)) {
       setParams(externalParams);
       angleRef.current = externalParams.angle;
       angularVelocityRef.current = externalParams.angularVelocity;
@@ -361,28 +352,28 @@ function GraphPlotterSimulator({ params: externalParams, onParamsChange }: Graph
     zoom: 30,
   };
 
-  const [params, setParams] = useState<GraphPlotterParams>(externalParams || defaultParams);
+  const [params, setParams] = useState<GraphPlotterParams>(defaultParams);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (externalParams) {
+    if (externalParams && externalParams.expression && 
+        (externalParams.expression !== params.expression || externalParams.zoom !== params.zoom)) {
       setParams(externalParams);
     }
   }, [externalParams]);
-
-  useEffect(() => {
-    onParamsChange?.(params);
-  }, [params]);
 
   const handleExpressionChange = (expression: string) => {
     const newParams = { ...params, expression };
     setParams(newParams);
     setError(null);
+    onParamsChange?.(newParams);
   };
 
   const handleZoomChange = (delta: number) => {
     const newZoom = Math.max(10, Math.min(100, params.zoom + delta));
-    setParams({ ...params, zoom: newZoom });
+    const newParams = { ...params, zoom: newZoom };
+    setParams(newParams);
+    onParamsChange?.(newParams);
   };
 
   const examples = [
@@ -484,20 +475,18 @@ interface PHMeterSimulatorProps {
 
 function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSimulatorProps) {
   const defaultParams: PHMeterParams = { ph: 7 };
-  const [params, setParams] = useState<PHMeterParams>(externalParams || defaultParams);
+  const [params, setParams] = useState<PHMeterParams>(defaultParams);
 
   useEffect(() => {
-    if (externalParams) {
+    if (externalParams && externalParams.ph !== undefined && externalParams.ph !== params.ph) {
       setParams(externalParams);
     }
   }, [externalParams]);
 
-  useEffect(() => {
-    onParamsChange?.(params);
-  }, [params]);
-
   const handlePhChange = (ph: number) => {
-    setParams({ ph: Math.max(0, Math.min(14, ph)) });
+    const newParams = { ph: Math.max(0, Math.min(14, ph)) };
+    setParams(newParams);
+    onParamsChange?.(newParams);
   };
 
   const getLiquidColor = (ph: number): string => {
@@ -529,14 +518,6 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
     if (ph < 11) return 'Weakly Basic';
     return 'Strongly Basic';
   };
-
-  const presets = [
-    { label: 'Lemon', value: 2 },
-    { label: 'Coffee', value: 5 },
-    { label: 'Water', value: 7 },
-    { label: 'Soap', value: 10 },
-    { label: 'Bleach', value: 13 },
-  ];
 
   return (
     <View className="bg-white rounded-xl">
@@ -593,7 +574,6 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
         {/* pH Slider Visual */}
         <View className="mb-4">
           <View className="h-3 rounded-full overflow-hidden mb-2" style={{
-            background: 'linear-gradient(to right, #ef4444, #fb923c, #fde047, #22c55e, #14b8a6, #3b82f6, #a855f7)',
             backgroundColor: getLiquidColor(params.ph),
           }}>
             <View
@@ -630,26 +610,6 @@ function PHMeterSimulator({ params: externalParams, onParamsChange }: PHMeterSim
           >
             <Text className="text-gray-700 font-medium">+ 0.1</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Presets */}
-        <Text className="text-sm font-medium text-gray-700 mb-2">Quick Presets</Text>
-        <View className="flex-row flex-wrap gap-2 mb-4">
-          {presets.map((preset) => (
-            <TouchableOpacity
-              key={preset.value}
-              onPress={() => handlePhChange(preset.value)}
-              className={`px-4 py-2 rounded-lg ${
-                Math.abs(params.ph - preset.value) < 0.5
-                  ? 'bg-teal-600'
-                  : 'bg-white border border-gray-300'
-              }`}
-            >
-              <Text className={Math.abs(params.ph - preset.value) < 0.5 ? 'text-white' : 'text-gray-700'}>
-                {preset.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* Info Box */}
@@ -691,16 +651,18 @@ function SaveExperimentModal({
   };
 
   const renderParams = () => {
+    if (!params) return null;
+    
     if ('length' in params) {
       // PendulumParams
       const p = params as PendulumParams;
       return (
         <>
-          <Text className="text-sm text-gray-600">• Length: {p.length.toFixed(0)} cm</Text>
-          <Text className="text-sm text-gray-600">• Mass: {p.mass.toFixed(1)} kg</Text>
-          <Text className="text-sm text-gray-600">• Gravity: {p.gravity.toFixed(1)} m/s²</Text>
+          <Text className="text-sm text-gray-600">• Length: {p.length?.toFixed(0) || 0} cm</Text>
+          <Text className="text-sm text-gray-600">• Mass: {p.mass?.toFixed(1) || 0} kg</Text>
+          <Text className="text-sm text-gray-600">• Gravity: {p.gravity?.toFixed(1) || 0} m/s²</Text>
           <Text className="text-sm text-gray-600">
-            • Initial Angle: {((p.angle * 180) / Math.PI).toFixed(0)}°
+            • Initial Angle: {p.angle ? ((p.angle * 180) / Math.PI).toFixed(0) : 0}°
           </Text>
         </>
       );
@@ -709,18 +671,18 @@ function SaveExperimentModal({
       const p = params as GraphPlotterParams;
       return (
         <>
-          <Text className="text-sm text-gray-600">• Expression: {p.expression}</Text>
-          <Text className="text-sm text-gray-600">• Zoom: {p.zoom}</Text>
+          <Text className="text-sm text-gray-600">• Expression: {p.expression || 'N/A'}</Text>
+          <Text className="text-sm text-gray-600">• Zoom: {p.zoom || 30}</Text>
         </>
       );
     } else if ('ph' in params) {
       // PHMeterParams
       const p = params as PHMeterParams;
       return (
-        <Text className="text-sm text-gray-600">• pH Level: {p.ph.toFixed(1)}</Text>
+        <Text className="text-sm text-gray-600">• pH Level: {p.ph?.toFixed(1) || '7.0'}</Text>
       );
     }
-    return null;
+    return <Text className="text-sm text-gray-600">No parameters to display</Text>;
   };
 
   return (
@@ -837,8 +799,11 @@ function SavedExperimentsList({
 
           <View className="bg-gray-50 rounded p-2 mb-3">
             <Text className="text-xs text-gray-600">
-              L: {exp.parameters.length}cm • M: {exp.parameters.mass}kg • G: {exp.parameters.gravity}m/s² • θ:{" "}
-              {((exp.parameters.angle * 180) / Math.PI).toFixed(0)}°
+              {'length' in exp.parameters
+                ? `L: ${(exp.parameters as PendulumParams).length}cm • M: ${(exp.parameters as PendulumParams).mass}kg • G: ${(exp.parameters as PendulumParams).gravity}m/s² • θ: ${(((exp.parameters as PendulumParams).angle * 180) / Math.PI).toFixed(0)}°`
+                : 'expression' in exp.parameters
+                ? `f(x) = ${(exp.parameters as GraphPlotterParams).expression} • Zoom: ${(exp.parameters as GraphPlotterParams).zoom}`
+                : `pH: ${(exp.parameters as PHMeterParams).ph.toFixed(1)}`}
             </Text>
           </View>
 
@@ -873,6 +838,37 @@ export default function SimulationDetailPage() {
   const [activeTab, setActiveTab] = useState<"simulation" | "saved">("simulation");
   const [saveModalVisible, setSaveModalVisible] = useState(false);
 
+  // Initialize default params based on simulation type
+  useEffect(() => {
+    if (selectedSimulation && !currentParams) {
+      const title = selectedSimulation.title?.toLowerCase() || '';
+      const component = selectedSimulation.config?.component || '';
+      
+      if (title.includes('pendulum') || component === 'PendulumSimulator') {
+        const defaultPendulumParams: PendulumParams = {
+          length: 200,
+          mass: 20,
+          gravity: 9.8,
+          damping: 0.999,
+          angle: Math.PI / 4,
+          angularVelocity: 0,
+        };
+        setCurrentParams(defaultPendulumParams);
+      } else if (title.includes('graph') || title.includes('math') || title.includes('function') || component === 'GraphPlotterSimulator') {
+        const defaultGraphParams: GraphPlotterParams = {
+          expression: 'Math.sin(x) * x',
+          zoom: 30,
+        };
+        setCurrentParams(defaultGraphParams);
+      } else if (title.includes('ph') || title.includes('chem') || title.includes('scale') || component === 'PHMeterSimulator') {
+        const defaultPHParams: PHMeterParams = {
+          ph: 7,
+        };
+        setCurrentParams(defaultPHParams);
+      }
+    }
+  }, [selectedSimulation]);
+
   // Fetch saved experiments on mount if user is logged in
   useEffect(() => {
     if (user && selectedSimulation) {
@@ -884,65 +880,43 @@ export default function SimulationDetailPage() {
   const effectiveParams = loadedParams || currentParams;
 
   const handleSaveExperiment = async (name: string) => {
-    if (!user || !selectedSimulation) {
+    if (!user || !selectedSimulation || !currentParams) {
       Alert.alert("Error", "Please log in to save experiments.");
       return;
     }
 
     try {
-      await api.post("/save-progress", {
-        name,
-        simulationId: selectedSimulation.id,
-        data: currentParams,  // Backend expects 'data' field
-      });
+      await saveExperiment(selectedSimulation.id, name, currentParams as Record<string, any>);
       Alert.alert("Success", "Experiment saved successfully!");
       fetchSavedExperiments(selectedSimulation.id);
     } catch (error: any) {
       console.error("Save error:", error);
-      Alert.alert("Error", error.response?.data?.error || "Failed to save experiment");
+      Alert.alert("Error", error.message || "Failed to save experiment");
     }
   };
 
   const handleLoadExperiment = (exp: SavedExperiment) => {
-    // Safely load parameters with default fallbacks
-    const defaultParams: PendulumParams = {
-      length: 200,
-      mass: 20,
-      gravity: 9.8,
-      damping: 0.999,
-      angle: Math.PI / 4,
-      angularVelocity: 0,
-    };
-    
+    // Load parameters based on type
     const params = exp.parameters || exp.data || {};
-    const safeParams: PendulumParams = {
-      length: params.length ?? defaultParams.length,
-      mass: params.mass ?? defaultParams.mass,
-      gravity: params.gravity ?? defaultParams.gravity,
-      damping: params.damping ?? defaultParams.damping,
-      angle: params.angle ?? defaultParams.angle,
-      angularVelocity: params.angularVelocity ?? defaultParams.angularVelocity,
-    };
-    
-    setLoadedParams(safeParams);
+    setLoadedParams(params);
     setActiveTab("simulation");
     Alert.alert("Loaded", `Experiment "${exp.name}" loaded successfully!`);
   };
 
   const handleDeleteExperiment = async (expId: number) => {
     try {
-      await api.delete(`/experiments/${expId}`);
+      await deleteExperiment(expId);
       Alert.alert("Deleted", "Experiment deleted successfully!");
       if (selectedSimulation) {
         fetchSavedExperiments(selectedSimulation.id);
       }
     } catch (error: any) {
       console.error("Delete error:", error);
-      Alert.alert("Error", error.response?.data?.error || "Failed to delete experiment");
+      Alert.alert("Error", error.message || "Failed to delete experiment");
     }
   };
 
-  const handleParamsChange = (params: PendulumParams) => {
+  const handleParamsChange = (params: PendulumParams | GraphPlotterParams | PHMeterParams) => {
     setCurrentParams(params);
     // Clear loaded params when user changes parameters manually
     if (loadedParams) {
@@ -957,15 +931,15 @@ export default function SimulationDetailPage() {
 
     if (title.includes('pendulum') || component === 'PendulumSimulator') {
       return (
-        <PendulumSimulator params={effectiveParams} onParamsChange={handleParamsChange} />
+        <PendulumSimulator params={(effectiveParams as unknown) as PendulumParams} onParamsChange={handleParamsChange} />
       );
     } else if (title.includes('graph') || title.includes('math') || title.includes('function') || component === 'GraphPlotterSimulator') {
       return (
-        <GraphPlotterSimulator params={effectiveParams} onParamsChange={handleParamsChange} />
+        <GraphPlotterSimulator params={(effectiveParams as unknown) as GraphPlotterParams} onParamsChange={handleParamsChange} />
       );
     } else if (title.includes('ph') || title.includes('chem') || title.includes('scale') || component === 'PHMeterSimulator') {
       return (
-        <PHMeterSimulator params={effectiveParams} onParamsChange={handleParamsChange} />
+        <PHMeterSimulator params={(effectiveParams as unknown) as PHMeterParams} onParamsChange={handleParamsChange} />
       );
     } else {
       return (
