@@ -17,7 +17,7 @@ export function FilterSidebar({ onFiltersChange }: FilterSidebarProps) {
       categories: selectedCategories,
       subcategories: [],
     });
-  }, [selectedCategories, onFiltersChange]);
+  }, [selectedCategories]);
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({

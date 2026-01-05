@@ -54,7 +54,7 @@ export function GraphPlotterSimulator({ onParametersChange, initialParams }: Gra
 
   useEffect(() => {
     onParametersChange?.({ expression, zoom });
-  }, [expression, zoom, onParametersChange]);
+  }, [expression, zoom]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

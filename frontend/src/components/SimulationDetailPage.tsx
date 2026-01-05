@@ -39,7 +39,8 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
     if (onParamsChange && currentParams) {
       onParamsChange(currentParams);
     }
-  }, [currentParams, onParamsChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentParams]);
 
   // Provide save handler to parent
   useEffect(() => {
@@ -58,7 +59,8 @@ export function SimulationDetailPage({ simulation, user, onBack, onParamsChange,
         }
       });
     }
-  }, [simulation.id, currentParams, onSaveHandlerReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [simulation.id, currentParams]);
 
   // Function to fetch saved experiments from Supabase
   const fetchHistory = async () => {

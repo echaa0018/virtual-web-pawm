@@ -35,7 +35,7 @@ export function PendulumSimulator({ onParametersChange, initialParams }: Pendulu
 
   useEffect(() => {
     onParametersChange?.({ length, mass, gravity });
-  }, [length, mass, gravity, onParametersChange]);
+  }, [length, mass, gravity]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

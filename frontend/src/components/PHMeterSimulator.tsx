@@ -20,7 +20,7 @@ export function PHMeterSimulator({ onParametersChange, initialParams }: PHMeterS
 
   useEffect(() => {
     onParametersChange?.({ ph });
-  }, [ph, onParametersChange]);
+  }, [ph]);
 
   const getLiquidColor = (ph: number) => {
     if (ph < 3) return 'bg-red-500';

@@ -1,5 +1,5 @@
 // src/App.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Homepage } from './components/Homepage';
@@ -26,6 +26,15 @@ function App() {
   // Current simulation parameters and save handler
   const [currentParams, setCurrentParams] = useState<any>(null);
   const [saveHandler, setSaveHandler] = useState<((name: string) => void) | null>(null);
+
+  // Memoized callbacks to prevent infinite loops
+  const handleParamsChange = useCallback((params: any) => {
+    setCurrentParams(params);
+  }, []);
+
+  const handleSaveHandlerReady = useCallback((handler: (name: string) => void) => {
+    setSaveHandler(() => handler);
+  }, []);
 
   // 1. Check for logged in user on load with Supabase
   useEffect(() => {
@@ -116,8 +125,8 @@ function App() {
             simulation={selectedSim}
             user={user}
             onBack={() => setShowSaveModal(true)}
-            onParamsChange={setCurrentParams}
-            onSaveHandlerReady={(handler) => setSaveHandler(() => handler)}
+            onParamsChange={handleParamsChange}
+            onSaveHandlerReady={handleSaveHandlerReady}
           />
         )}
       </div>
