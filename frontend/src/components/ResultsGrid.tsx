@@ -1,22 +1,7 @@
 import { useState } from 'react';
 import { Grid3x3, List, Filter, Search } from 'lucide-react';
 import { SimulationCard } from './SimulationCard';
-
-// Define the shape of your Simulation data
-interface Simulation {
-  id: number;
-  title: string;
-  description?: string;
-  category?: string;
-  subcategory?: string; 
-  image?: string;
-  isNew?: boolean;
-  createdAt?: string;
-  config?: {
-    hasSimulation?: boolean;
-    [key: string]: any;
-  };
-}
+import type { Simulation } from '../lib/supabase';
 
 interface ResultsGridProps {
   simulations: Simulation[];
@@ -39,8 +24,8 @@ export function ResultsGrid({
 
   // Filter Logic
   const filteredSimulations = simulations.filter(sim => {
-    const simCategory = sim.category || 'Physics';
-    const simSubcategory = sim.subcategory || 'General';
+    const simCategory = sim.category ?? 'Physics';
+    const simSubcategory = sim.subcategory ?? 'General';
     const categoryMatch = selectedCategories.length === 0 || selectedCategories.includes(simCategory);
     const subcategoryMatch = selectedSubcategories.length === 0 || selectedSubcategories.includes(simSubcategory);
     const searchMatch = sim.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -50,8 +35,8 @@ export function ResultsGrid({
 
   // Sort Logic
   const sortedSimulations = [...filteredSimulations].sort((a, b) => {
-    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
 
     switch (sortBy) {
       case 'newest': return dateB - dateA;
@@ -135,8 +120,8 @@ export function ResultsGrid({
             key={simulation.id}
             id={simulation.id}
             title={simulation.title}
-            image={simulation.image || 'https://placehold.co/600x400?text=Simulation'}
-            isNew={simulation.isNew || false}
+            image={simulation.image ?? 'https://placehold.co/600x400?text=Simulation'}
+            isNew={simulation.is_new}  // Use is_new (snake_case from Supabase)
             hasSimulation={simulation.config?.hasSimulation ?? false}
             viewMode={viewMode}
           />

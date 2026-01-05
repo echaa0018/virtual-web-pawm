@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useOutletContext } from 'react-router-dom';
 import { HeroBanner } from './HeroBanner';
 import { FilterSidebar } from './FilterSidebar';
 import { ResultsGrid } from './ResultsGrid';
@@ -7,7 +7,6 @@ import { X } from 'lucide-react';
 import type { AppOutletContext } from '../App';
 
 export function Homepage() {
-  const navigate = useNavigate();
   const { simulations } = useOutletContext<AppOutletContext>();
   
   const [filterOpen, setFilterOpen] = useState(false);
@@ -17,10 +16,6 @@ export function Homepage() {
   const handleFiltersChange = (filters: { categories: string[]; subcategories: string[] }) => {
     setSelectedCategories(filters.categories);
     setSelectedSubcategories(filters.subcategories);
-  };
-
-  const handleSimulationClick = (simulation: any) => {
-    navigate(`/simulation/${simulation.id}`);
   };
 
   return (
@@ -42,7 +37,6 @@ export function Homepage() {
               simulations={simulations} // <--- Pass the data here
               filterOpen={filterOpen}
               setFilterOpen={setFilterOpen}
-              onSimulationClick={handleSimulationClick}
               selectedCategories={selectedCategories}
               selectedSubcategories={selectedSubcategories}
             />
